@@ -1,0 +1,31 @@
+<interface>
+
+  <rules>
+   	<!-- ssh access limited by the recent module, allows max. 4 connections from the same ip per minute -->
+	<traffic chain="INPUT" job="ACCEPT" state="NEW" source="0/0" protocol="tcp" destination="0/0" destination-port="22" recent="" set="" name="SSH"/>
+	<traffic chain="INPUT" job="DROP" source="0/0" protocol="tcp" destination="0/0" destination-port="22" recent="" update="" seconds="60" hitcount="4" name="SSH"/>
+	<!-- allow ftp from outside -->
+	<traffic chain="INPUT" job="ACCEPT" state="NEW" source="0/0" protocol="tcp" destination="0/0" destination-port="21"/>
+	<!-- allow http/https from outside -->
+	<traffic chain="INPUT" job="ACCEPT" state="NEW" source="0/0" protocol="tcp" destination="0/0" destination-port="80"/>
+	<traffic chain="INPUT" job="ACCEPT" state="NEW" source="0/0" protocol="tcp" destination="0/0" destination-port="443"/>
+
+	<!-- reject any traffic from host 1.1.1.1 -->
+	<traffic chain="INPUT" job="REJECT" state="NEW" source="1.1.1.1/32" protocol="tcp" destination="0/0"/>
+	<traffic chain="INPUT" job="REJECT" state="NEW" source="1.1.1.1/32" protocol="udp" destination="0/0"/>
+  </rules>
+
+  <portforwarding>
+  </portforwarding>
+
+  <transproxy>
+  </transproxy>
+
+  <logging>
+  </logging>
+
+  <masquerading>
+	<traffic chain="POSTROUTING" job="MASQUERADE" table="nat"/>
+  </masquerading>
+
+</interface>

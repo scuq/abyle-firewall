@@ -1,0 +1,11 @@
+#!/bin/sh
+rm /etc/init.d/abyle-firewall >/dev/null 2> /dev/null
+update-rc.d abyle-firewall remove >/dev/null
+
+rm -rf /usr/lib/python2.4/site-packages/abyle-firewall >/dev/null
+
+#!/bin/sh
+if [ "$1" = purge ] && [ -e /usr/share/debconf/confmodule ]; then
+ . /usr/share/debconf/confmodule
+  db_purge
+fi

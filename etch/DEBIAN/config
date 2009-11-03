@@ -1,0 +1,72 @@
+#!/bin/sh -e
+# Source debconf library.
+. /usr/share/debconf/confmodule
+
+db_version 2.0
+db_title abyle-firewall
+
+if [ "$1" == "reconfigure" ]; then
+	db_fset abyle-firewall/exclude seen false
+fi
+db_input high abyle-firewall/exclude  || true
+db_go || true
+
+db_get abyle-firewall/exclude 
+
+if  [ $RET = true ]; then
+	
+
+	networkInterfaces=`cat /proc/net/dev  | grep ':' | awk -F: '{ print $1 }' |  awk '{ print $1 }'`
+
+	tempCnt1=0
+	for interface in $networkInterfaces; do
+      	  tempCnt1=$[$tempCnt1 + 1]
+	done
+
+	tempCnt=0
+	for interface in $networkInterfaces; do
+      	  tempCnt=$[$tempCnt + 1]
+      	  if [ "$tempCnt" -eq "$tempCnt1" ]; then
+      	          if [ "$tempCnt" -eq "1" ]; then
+      	                  interfacesString="$interface"
+      	          else
+      	                  interfacesString="$interface, $interfacesString"
+      	          fi
+
+       	 else
+       	         if [ "$tempCnt" -eq "1" ]; then
+       	                 interfacesString="$interface"
+       	         else
+       	                 interfacesString="$interfacesString, $interface"
+       	         fi
+       	 fi
+	done
+
+	db_subst abyle-firewall/interfaces interfaces $interfacesString
+
+	if [ "$1" == "reconfigure" ]; then
+		db_fset abyle-firewall/interfaces seen false
+	fi
+	db_set abyle-firewall/interfaces "lo, sit0"
+	db_input high abyle-firewall/interfaces  || true
+	db_go || true
+
+	db_input high abyle-firewall/ipv4forward || true
+	db_go || true
+
+	db_get abyle-firewall/interfaces
+
+	protectedinterfaces=""
+
+	for exclinterface in $RET
+	do
+			exclinterface=`echo $exclinterface | awk '{sub(/,/,"");print}'`
+			interfacesString=`echo $interfacesString | awk '{sub(/'$exclinterface', /,"");print}'`
+	done
+
+	protectedinterfaces=$interfacesString	
+	#db_register abyle-firewall/protectedinterfaces 
+	db_set abyle-firewall/protectedinterfaces $protectedinterfaces
+	db_go || true
+
+fi

@@ -1,0 +1,45 @@
+#!/bin/sh -e
+# Source debconf library.
+. /usr/share/debconf/confmodule
+
+db_version 2.0
+db_title abyle-firewall
+
+
+update-rc.d abyle-firewall defaults  >/dev/null || true
+
+db_get abyle-firewall/interfaces
+excludedinterfaces=$RET
+
+db_get abyle-firewall/protectedinterfaces
+protectedinterfaces=$RET
+
+db_get abyle-firewall/ipv4forward
+ipv4forward=$RET
+
+for interface in $protectedinterfaces
+do
+	interface=`echo $interface | awk '{sub(/,/,"");print}'`
+	interface='<interface desc="'$interface'" excluded="no">'$interface'</interface>'
+	cat /etc/abyle-firewall/config.xml | sed "/<protect>/a $interface" > /etc/abyle-firewall/config.xml_tmp
+	mv /etc/abyle-firewall/config.xml_tmp /etc/abyle-firewall/config.xml
+done
+
+for interface in $excludedinterfaces
+do
+	interface=`echo $interface | awk '{sub(/,/,"");print}'`
+	interface='<interface desc="'$interface'" excluded="yes">'$interface'</interface>'
+	cat /etc/abyle-firewall/config.xml | sed "/<protect>/a $interface" > /etc/abyle-firewall/config.xml_tmp
+	mv /etc/abyle-firewall/config.xml_tmp /etc/abyle-firewall/config.xml
+done
+
+if [ "$ipv4forward" = true ]; then
+	cat /etc/abyle-firewall/config.xml | awk '{sub(/<ipv4forward>no<\/ipv4forward>/,"<ipv4forward>yes</ipv4forward>");print}' > /etc/abyle-firewall/config.xml_tmp 2>/dev/null
+	mv /etc/abyle-firewall/config.xml_tmp /etc/abyle-firewall/config.xml
+fi
+
+
+
+if [ ! -d /etc/abyle-firewall ]; then
+	/usr/sbin/abyle-firewall -t >/var/log/abyle.log || true
+fi

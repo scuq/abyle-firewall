@@ -1,0 +1,67 @@
+#! /bin/bash
+
+
+export globalconfig="/etc/abyle-firewall/config.xml"
+export fifodir=`cat $globalconfig |grep "<fifopath>" | sed s/"<fifopath>"// | sed s/"<\/fifopath>"// | awk '{sub(/^[ \t]+/, ""); print}'`
+export pidfile=$fifodir"/abyled.pid"
+export logfile=`cat $globalconfig |grep "<daemonlogfile>" | sed s/"<daemonlogfile>"// | sed s/"<\/daemonlogfile>"// | awk '{sub(/^[ \t]+/, ""); print}'`
+
+start_abyle() {
+	abyle-firewall -s
+}
+
+start_abyle_daemon() {
+	daemon_enabled=`cat $globalconfig |grep "<daemonenabled>" | grep "yes" | wc -l`
+	if [ $daemon_enabled -eq 0 ]; then
+		echo ""
+		echo "frontendDaemon not started -> disabled in "$globalconfig
+	else
+		echo ""
+		echo "starting frontendDaemon . . . "
+		abyle-firewall -D > $logfile 2>&1
+		sleep 2
+	fi
+}
+
+stop_abyle() {
+	abyle-firewall -b
+}
+
+stop_abyle_daemon() {
+	if test -f $pidfile; then
+		kill `cat $pidfile`
+		rm $pidfile
+	fi
+}
+
+restart_abyle() {
+	abyle-firewall -r
+}
+
+export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
+
+case "$1" in
+  start)
+	echo "Starting Abyle Firewall Script ..."
+	start_abyle
+	start_abyle_daemon
+	;;
+  stop)
+	echo "Stopping Abyle Firewall Script ..."
+	stop_abyle
+	stop_abyle_daemon
+	;;
+
+  restart)
+	echo "Restarting Abyle Firewall Script ..."
+	stop_abyle_daemon
+	restart_abyle
+	start_abyle_daemon
+	;;
+
+  *)
+	echo "Usage: /etc/init.d/abyle-firewall {start|stop|restart}"
+	exit 1
+esac
+
+exit 0

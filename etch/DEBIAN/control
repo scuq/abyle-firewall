@@ -1,0 +1,23 @@
+Package: abyle-firewall
+Version: 1.0.0-1
+Section: net
+Priority: optional
+Architecture: i386
+Pre-Depends: debconf (>= 0.5) | debconf-2.0
+Depends: python, python-xml, iptables
+Recommends: abyle-frontend
+Installed-Size: 900
+Maintainer: Abyle Maintainers <admin@abyle.org>
+Description: Abyle Firewall Script (abyle-firewall)
+ the abyle iptables script is one of a million iptables scripts arround the
+ internet, it was developed for fun and learning some python basics.
+ . 
+ the configurion and rules are stored in xml files within an hierarchically
+ per interface directory structure.
+ . 
+ the configurion and rules are stored in xml files within an hierarchically
+ per interface directory structure.
+ .   
+ most people will say "what .. for?"
+ especially if they look at the not very straight xml syntax of the rules
+ file, we have to answer: "just for fun" that's our purpose. :)

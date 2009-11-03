@@ -1,0 +1,23 @@
+#!/bin/sh
+if [ -e /usr/share/debconf/confmodule ]; then
+    . /usr/share/debconf/confmodule
+    # I no longer claim this question.
+    db_unregister abyle-firewall/interfaces
+        
+    # See if the shared question still exists.
+    if db_get abyle-firewall/interfaces; then
+        db_metaget abyle-firewall/interfaces owners
+        db_subst abyle-firewall/interfaces choices $RET
+        db_metaget abyle-firewall/interfaces value
+        if [ "abyle-firewall" = "$RET" ] ; then
+            db_fset abyle-firewall/interfaces seen false
+            db_input critical abyle-firewall/interfaces || true
+            db_go || true
+        fi
+
+        # Now do whatever the postinst script did tp upsate
+        # the window manager symlink or whatever.
+    fi
+    exit 0
+fi
+exit 0

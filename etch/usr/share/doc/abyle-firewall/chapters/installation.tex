@@ -1,0 +1,72 @@
+%------------------------------------------------------------------------------
+%	Abyle Installation
+%------------------------------------------------------------------------------
+\chapter{Installation}
+
+\section{Prerequisites}
+
+\subsection{Debian}
+
+python ($>=$ 2.3)\newline
+python-xml\newline
+iptables\newline
+
+\subsection{Ubuntu}
+
+python ($>=$ 2.3)\newline
+python-xml\newline
+iptables\newline
+
+\subsection{Fedora}
+
+\subsection{Suse}
+
+\subsection{Gentoo}
+
+\section{Installation with abyle-installer.sh}
+untar your abyle package usually named abyle-$<$VERSION$>$.tar.bz2 with the following command\dnl
+\courierfont
+tar xvfj abyle-$<$VERSION$>$.tar.bz2\dnl
+\normalfont
+if your tar doen't support bzip2 decompression:\dnl
+\courierfont
+bzcat abyle-$<$VERSION$>$.tar.bz2 | tar xvf -\dnl
+\normalfont
+Now you can change the directory to ./abyle-pkg\dnl
+\courierfont
+cd abyle-pkg\dnl
+\normalfont
+Now run the Abyle-Installer with:\dnl
+\courierfont
+./abyle-installer.sh install\dnl
+\normalfont
+\begin{itemize}
+\item The installer will ask you for the path to your python site-package directory, this is the place where your python modules (classes) are located - on debian based distributions it's usally:\dnl
+\courierfont
+/usr/local/lib/python$<$VERSION$>$/site-packages\dnl
+\normalfont
+\item The next question is about where you want to locate the abyle main script usually:\dnl 
+\courierfont
+/usr/local/sbin\dnl
+\normalfont
+or\dnl
+\courierfont
+/usr/sbin\dnl
+\normalfont
+\item The last question is about the configuration directory if you choose to place it on a non default place you have to mention to put the \courierfont--config-path=$<$\$PATH$>$\normalfont parameter to every abyle execution.
+If you have completed all steps successfully you can get further informations by typing:\dnl
+\courierfont
+\# abyle --help\dnl
+\normalfont
+The abyle-main script looks for a suitable python intepreter in your \$PATH by invoking: /usr/bin/env, so if you want to use another installed python version u have to replace the first line of the script with the path to your desired python intepreter or you have to make a softlink in the path to this version. On Debian Systems it's most common to have at least two different python version installed.\newline
+Bevore you can use abyle u have to install a default template configuration for each interface,
+this could be done by executing:\dnl
+\courierfont
+\# abyle -t\dnl
+\normalfont
+\end{itemize}
+
+\section{Manual Installation}
+
+
+

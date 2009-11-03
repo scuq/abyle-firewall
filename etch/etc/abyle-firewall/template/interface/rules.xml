@@ -1,0 +1,26 @@
+<interface>
+
+  <rules>
+    <!-- allow all by default -->
+    <traffic chain="block" job="ACCEPT" state="NEW"></traffic>	
+  </rules>
+
+  <portforwarding>
+    <!-- example rule for portforwarding, forward incoming traffic on this interace on port 2222 TCP to 192.168.0.245 port 22 tcp -->
+    <traffic chain="PREROUTING" job="DNAT" table="nat" forward-port="2222" destination="192.168.0.245" destination-port="22" protocol="tcp"/>
+  </portforwarding>
+
+  <transparentproxy>
+    <!-- example rule for HTTP transparent proxy / enable/disable in config.xml -->
+    <traffic chain="PREROUTING" job="REDIRECT" table="nat" forward-port="80" destination="0/0" destination-port="3128" protocol="tcp"></traffic>
+  </transparentproxy>
+
+  <logging>
+  </logging>
+
+  <masquerading>
+    <!-- example rule for masquerading / enable/disable in config.xml -->
+    <traffic chain="POSTROUTING" job="MASQUERADE" table="nat"/>
+  </masquerading>
+
+</interface>

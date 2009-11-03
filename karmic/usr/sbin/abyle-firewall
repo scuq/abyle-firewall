@@ -1,0 +1,691 @@
+#!/usr/bin/env python2.6
+
+# Copyright (C) 2005    Stefan Nistelberger (scuq@gmx.net)
+#                       Daniel Schrammel (nowx@gmx.at)
+# abyle firewall
+# abyle - python iptables config script
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+# http://www.gnu.org/licenses/gpl.txt
+
+import os
+import sys
+import re
+import string
+import types
+import datetime
+from optparse import OptionParser
+from abyle_output import abyle_output
+from abyle_firewall import abyle_firewall
+from abyle_execute import abyle_execute
+from abyle_config_xmlparser import abyle_config_parse
+from abyle_config_xmlwriter import abyle_config_write
+from abyle_changelog_xmlparser import abyle_changelog_parse
+from xml.sax.handler import ContentHandler
+from xml.sax import make_parser
+
+#from xml.dom.minidom import parse
+
+# uid and gid checking
+from pwd import getpwnam
+from grp import getgrnam
+
+# fifo reading
+import select
+
+# daemon filehandles
+import resource
+
+def retrim(inputstr):
+
+    inputstr = re.sub("^[^\w]+","",inputstr)
+    inputstr = re.sub("[^\w]+$","",inputstr)
+    inputstr = re.sub(" +"," ",inputstr)
+
+    return inputstr
+
+
+# check if xml is wellformed, before reading it, i'm using the saxparser for this
+def check_well_formedness(file):
+    try:
+        saxparser = make_parser()
+        saxparser.setContentHandler(ContentHandler())
+        saxparser.parse(file)
+        return "ok"
+    except (Exception):
+        return str(file) + " is NOT well-formed! " + str(sys.exc_info()[1])
+
+# flush the iptables chain(s) with iptables -F
+def flush_chains(dryrun, table, LOGFILE, verbose, output):
+
+    executioner = abyle_execute()
+
+    if table == "all":
+        stdOut, stdErr = executioner.run(IPTABLES+' -F', dryrun)
+
+        if verbose:
+            abyle_output("flush_chains", stdErr, stdOut, "flushed chains.", "default", LOGFILE)
+
+        else:
+            output.startup(".")
+
+        stdOut, stdErr = executioner.run(IPTABLES+' -X', dryrun)
+
+        if verbose:
+            abyle_output("flush_chains", stdErr, stdOut, "deleted chains.", "default", LOGFILE)
+        else:
+            output.startup(".")
+
+    else:
+        stdOut, stdErr = executioner.run(IPTABLES+' -t '+table+' -F', dryrun)
+
+        if verbose:
+            abyle_output("flush_chains", stdErr, stdOut, "flushed chains for table "+table+".", "default", LOGFILE)
+        else:
+            output.startup(".")
+
+        stdOut, stdErr = executioner.run(IPTABLES+' -t '+table+' -X', dryrun)
+
+        if verbose:
+            abyle_output("flush_chains", stdErr, stdOut, "deleted chains for table "+table+".", "default", LOGFILE)
+        else:
+            output.startup(".")
+
+
+# preparing stuff, like loading kernel modules
+def prepare_firewall(KERNELMODULES, dryrun=False):
+    executioner = abyle_execute()
+    for module in KERNELMODULES:
+        stdOut, stdErr = executioner.run(MODPROBE+' -r '+module, dryrun)
+    abyle_output("prepare_firewall", "", "", "unloaded iptables kernel-modules.")
+
+    for module in KERNELMODULES:
+        stdOut, stdErr = executioner.run(MODPROBE+' '+module, dryrun)
+    abyle_output("prepare_firewall", "", "", "loaded iptables kernel-modules.")
+
+# get all existing interfaces from proc filesystem
+def getAllInterfaces(dryrun=False):
+    executioner = abyle_execute()
+    stdOut, stdErr = executioner.run('cat /proc/net/dev | grep ":" | cut -f1 -d ":"', dryrun)
+    EXISTING_INTERFACES=[]
+    for intF in stdOut:
+        intF = re.sub("^[^\w]+","",intF)
+        intF = re.sub("[^\w]+$","",intF)
+        intF = re.sub("\n$","",intF)
+        EXISTING_INTERFACES.append(intF)
+    return EXISTING_INTERFACES
+
+# stop the firewall
+def stopfw(dryrun, verbose, LOGFILE, mode="unsecure"):
+    output = abyle_output("","","","","default", LOGFILE)
+    if verbose:
+        now = datetime.datetime.now()
+        now =  now.strftime("%Y/%m/%d %H:%M:%S")
+
+        abyle_output("", "", "", "","blue", LOGFILE)
+        abyle_output("", "", "", "Stopping Firewall","blue", LOGFILE)
+        abyle_output("", "", "", "","blue", LOGFILE)
+        abyle_output("", "", "", "time: "+now,"default", LOGFILE)
+        abyle_output("", "", "", "","blue", LOGFILE)
+    else:
+        output.startup("Stopping Firewall")
+
+    if mode == "unsecure":
+        flush_chains(dryrun, "all", LOGFILE, verbose, output)
+        flush_chains(dryrun, "nat", LOGFILE, verbose, output)
+    if mode == "secure":
+
+        clearChains=["INPUT", "FORWARD", "OUTPUT"]
+
+        executioner = abyle_execute()
+
+        for chain in clearChains:
+
+            if verbose:
+                abyle_output("clearing_chains", "", "", "clearing chain "+chain, "default", LOGFILE)
+            else:
+                output.startup(".")
+
+            stdOut, stdErr = executioner.run(IPTABLES+' -I '+chain+' -j ACCEPT -m state --state ESTABLISHED,RELATED', dryrun)
+            stdOut, stdErr = executioner.run(IPTABLES+' -I '+chain+' 2 -j DROP', dryrun)
+            stdOut, stdErr = executioner.run(IPTABLES+' -v -L '+chain+' -n --line-numbers', dryrun)
+            inputRules = stdOut
+            ruleCount = 0
+            for inputRule in inputRules:
+                inputRule=retrim(inputRule)
+                inputRule=inputRule.split(' ', 4)
+                try:
+                    ruleCount = int(inputRule[0])
+                except ValueError:
+                    pass
+
+            cnt = 0
+            while cnt < ruleCount-1:
+                cnt = cnt + 1
+                stdOut, stdErr = executioner.run(IPTABLES+' -D '+chain+' 3', dryrun)
+
+
+        stdOut, stdErr = executioner.run(IPTABLES+' -v -L block -n --line-numbers', dryrun)
+        blockRules = stdOut
+        ruleCount = 0
+        for blockRule in blockRules:
+            if verbose:
+                abyle_output("clearing_chains", "", "", "clearing chain block", "default", LOGFILE)
+            else:
+                output.startup(".")
+
+            blockRule=retrim(blockRule)
+            blockRule=blockRule.split(' ', 4)
+            try:
+                ruleCount = int(blockRule[0])
+            except ValueError:
+                pass
+
+        cnt = 0
+        while cnt < ruleCount:
+            stdOut, stdErr = executioner.run(IPTABLES+' -D block 1', dryrun)
+            cnt = cnt + 1
+
+
+        stdOut, stdErr = executioner.run(IPTABLES+' -X', dryrun)
+        if verbose:
+            abyle_output("clearing_chains", stdErr, stdOut, "deleting non default chains", "default", LOGFILE)
+        else:
+            output.startup(".")
+
+        stdOut, stdErr = executioner.run(IPTABLES+' -t nat -F PREROUTING ', dryrun)
+        if verbose:
+            abyle_output("clearing_chains", stdErr, stdOut, "deleting nat PREROUTING", "default", LOGFILE)
+        else:
+            output.startup(".")
+
+        stdOut, stdErr = executioner.run(IPTABLES+' -t nat -F POSTROUTING ', dryrun)
+        if verbose:
+            abyle_output("clearing_chains", stdErr, stdOut, "deleting nat POSTROUTING", "default", LOGFILE)
+        else:
+            output.startup(".")
+
+    if not verbose:
+        try:
+            con_size = string.join(os.popen("stty size 2>/dev/null").readlines())
+            arr_con_size = string.split(con_size," ")
+            size = string.atoi(arr_con_size[1])-13
+            size = size+4
+            a = string.join(os.popen("echo -n \033[$(("+str(size)+"))G && echo -n   [DONE] "))
+            output.startup(a, "blue", "yes")
+        except IndexError:
+            output.startup("[DONE]\n")
+
+
+def frontendDaemon(FWCONFIGPATH, XMLCONFIG, verbose, LOGFILE):
+
+    try:
+
+        output = abyle_output("","","","","default", LOGFILE)
+
+        now = datetime.datetime.now()
+        now =  now.strftime("%Y/%m/%d %H:%M:%S")
+        abyle_output("", "", "", "","default", LOGFILE)
+        abyle_output("", "", "", "###### DAEMON STARTUP #####", "default", LOGFILE)
+        abyle_output("", "", "", "","default", LOGFILE)
+        abyle_output("", "", "", "startup time: "+now,"default", LOGFILE)
+        abyle_output("", "", "", "","default", LOGFILE)
+
+        global_config = abyle_config_parse(FWCONFIGPATH, "default", XMLCONFIG)
+
+        try:
+            fifoPath = global_config.getConfig("fifopath")
+        except IndexError:
+            fifoPath = "/var/run/abyle"
+
+        pidfile = fifoPath+"/abyled.pid"
+        if not os.path.exists(fifoPath):
+            os.makedirs(fifoPath)
+
+        if os.path.exists(pidfile):
+            f=open(pidfile, 'r')
+            running_pid = f.readline()
+            if os.path.exists('/proc/'+running_pid+'/status'):
+                abyle_output("abyle_main_frontendDaemon", "Error: Daemon already running? PID: "+running_pid,"","", "red", LOGFILE)
+                sys.exit(1)
+            f.close()
+
+        try:
+            if os.path.exists(pidfile):
+                os.unlink(pidfile)
+
+
+            pidfileHandle = open (pidfile, 'w')
+            pidfileHandle.write(str(os.getpid()))
+            pidfileHandle.close()
+        except IOError:
+            abyle_output("abyle_main_frontendDaemon", "Error: can not create pid file in "+fifoPath,"","", "red", LOGFILE)
+            sys.exit(1)
+
+
+        try:
+            frontendUser = global_config.getConfig("frontenduser")
+        except IndexError:
+            abyle_output("abyle_main_frontendDaemon", "Error no <frontenduser> specified in global config: "+FWCONFIGPATH+XMLCONFIG,"","", "red", LOGFILE)
+            sys.exit(1)
+
+        try:
+            frontendGroup = global_config.getConfig("frontendgroup")
+        except IndexError:
+            abyle_output("abyle_main_frontendDaemon", "Error no <frontendgroup> specified in global config: "+FWCONFIGPATH+XMLCONFIG,"","", "red", LOGFILE)
+            sys.exit(1)
+
+        try:
+            frontendUid = getpwnam(frontendUser)[2]
+        except KeyError:
+            abyle_output("abyle_main_frontendDaemon", "Frontend User: "+frontendUser+" doesn't exist.","","", "red", LOGFILE)
+            sys.exit(1)
+
+        if verbose:
+            abyle_output("abyle_main_frontendDaemon", "", "", "Frontend User: "+frontendUser+" ("+str(frontendUid)+")", "green", LOGFILE)
+        else:
+            output.startup(".")
+
+        try:
+            frontendGid = getgrnam(frontendGroup)[2]
+        except KeyError:
+            abyle_output("abyle_main_frontendDaemon", "Frontend Group: "+frontendGroup+" doesn't exist.","","", "red", LOGFILE)
+            sys.exit(1)
+
+        if verbose:
+            abyle_output("abyle_main_frontendDaemon", "", "", "Frontend Group: "+frontendGroup+" ("+str(frontendGid)+")", "green", LOGFILE)
+        else:
+            output.startup(".")
+
+        if not os.path.exists(fifoPath):
+            os.makedirs(fifoPath, mode=0o0770)
+
+        os.chown(fifoPath, frontendUid, frontendGid)
+
+        if verbose:
+            abyle_output("abyle_main_frontendDaemon", "", "",  "changed ownerchip of "+fifoPath+" to "+frontendUser+":"+frontendGroup, "green", LOGFILE)
+        else:
+            output.startup(".")
+
+        os.chmod(fifoPath, 0o0770)
+
+        if verbose:
+            abyle_output("abyle_main_frontendDaemon", "", "", "changed permissions of "+fifoPath+" to 0o0770", "green", LOGFILE)
+        else:
+            output.startup(".")
+
+        inputfifo = fifoPath+"/input"
+        outputfifo = fifoPath+"/output"
+
+        if not os.path.exists(fifoPath+"/input"):
+            os.mkfifo(fifoPath+"/input")
+
+        if not os.path.exists(fifoPath+"/output"):
+            os.mkfifo(fifoPath+"/output")
+
+
+        if verbose:
+            abyle_output("abyle_main_frontendDaemon", "", "", "created fifo's: "+fifoPath+"/input and "+fifoPath+"/output", "green", LOGFILE)
+        else:
+            output.startup(".")
+
+        os.chown(fifoPath+"/input", frontendUid, frontendGid)
+        os.chown(fifoPath+"/output", frontendUid, frontendGid)
+
+        if verbose:
+            abyle_output("abyle_main_frontendDaemon", "", "", "changed ownerchip of fifo's to "+frontendUser+":"+frontendGroup, "green", LOGFILE)
+        else:
+            output.startup(".")
+
+        os.chmod(fifoPath+"/input", 0o0770)
+        os.chmod(fifoPath+"/output", 0o0770)
+
+        if verbose:
+            abyle_output("abyle_main_frontendDaemon", "", "", "changed permissions of fifo's to 0o0770", "green", LOGFILE)
+        else:
+            output.startup(".")
+
+        if not verbose:
+            try:
+                con_size = string.join(os.popen("stty size").readlines())
+                arr_con_size = string.split(con_size," ")
+                size = string.atoi(arr_con_size[1])-13
+                size = size+4
+                a = string.join(os.popen("echo -n \033[$(("+str(size)+"))G && echo -n   [DONE] "))
+                output.startup(a, "blue", "yes")
+            except IndexError:
+                output.startup("done", "blue", "yes")
+
+        valid_commands_dict = {}
+
+        cmdcnt = 0
+        tempSysCmds = global_config.getConfig("syscmd")
+        for inputcmd in global_config.getConfig("inputcmd"):
+            valid_commands_dict[inputcmd]=tempSysCmds[cmdcnt]
+            cmdcnt = cmdcnt + 1
+
+        if verbose:
+            abyle_output("abyle_main_frontendDaemon", "", "", "loaded valid input commands", "green", LOGFILE)
+        else:
+            output.startup(".")
+
+
+        command = ""
+        while True:
+
+            ff = os.open(inputfifo, os.O_RDONLY)
+
+            while True:
+                select.select([ff], [], [])
+                c = os.read(ff, 1)
+
+                if c:
+                    command = command + c
+                    print (command)
+                    if valid_commands_dict.keys().count(command) > 0:
+                        if verbose:
+                            abyle_output("abyle_main_frontendDaemon", "", "", "detected valid command on input fifo: "+command, "green", LOGFILE)
+                            abyle_output("abyle_main_frontendDaemon", "", "", "executing: "+valid_commands_dict[command], "green", LOGFILE)
+                        os.system(valid_commands_dict[command]+' > '+outputfifo+' 2>&1')
+                        command = ""
+                        os.close(ff)
+                        break
+
+                    if command.endswith(";"):
+                        command = ""
+                        os.close(ff)
+                        break
+
+                else:
+                    os.close(ff)
+                    break
+
+
+    except KeyboardInterrupt:
+        print ("Ctrl+C recognized.")
+        print ("daemon stopped!")
+
+
+def realDaemon(FWCONFIGPATH, XMLCONFIG, verbose, LOGFILE):
+
+        # first fork
+    try:
+        pid = os.fork()
+        if pid > 0:
+        # exit first parent
+            sys.exit(0)
+    except (OSError):
+        print (str(sys.exc_info()[1]))
+        sys.exit(1)
+
+    # change environment
+    os.chdir("/")
+
+    # session leader of this new session and process group leader of the new process group
+    os.setsid()
+    os.umask(0)
+
+    # second fork, causes the second child process to be orphaned making the init process responsible for its cleanup
+
+    try:
+        pid = os.fork()
+        if pid > 0:
+        # exit from second parent, print eventual PID before
+        #print "Daemon PID %d" % pid
+        #open(PIDFILE,'w').write("%d"%pid)
+            sys.exit(0)
+    except (OSError):
+        print (str(sys.exc_info()[1]))
+        sys.exit(1)
+
+
+
+    # retrieve the maximum file descriptor number if there is no limit on the resource, use the default value
+    maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
+    if (maxfd == resource.RLIM_INFINITY):
+        maxfd = "1024"
+
+    # close all file descriptors
+    for fd in range(0, maxfd):
+        try:
+            os.close(fd)
+        except OSError: # ERROR, fd wasn't open to begin with (ignored)
+            pass
+
+    # # standard input (0)
+    os.open("/dev/null", os.O_RDWR)
+
+    # duplicate standard input to standard output and standard error.
+    os.dup2(0, 1)
+    os.dup2(0, 2)
+
+    # daemon code
+    frontendDaemon(FWCONFIGPATH, XMLCONFIG, verbose, LOGFILE)
+
+
+def main():
+
+    global IPTABLES
+    global MODPROBE
+
+    parser = OptionParser()
+    parser.add_option("-s", "--start", action="store_true", dest="startfw", default=False, help="start the firewall")
+    parser.add_option("-b", "--stop", action="store_true", dest="stopfw", default=False, help="stop (blow out) the firewall")
+    parser.add_option("-r", "--restart", action="store_true", dest="restartfw", default=False, help="restart the firewall")
+    parser.add_option("-d", "--dry-run", action="store_true", dest="dryrunfw", default=False, help="dryrun, dont excecute iptables, use with -s or -b flag")
+    parser.add_option("-i", "--status", action="store_true", dest="statusfw", default=False, help="status of your wall of fire")
+    parser.add_option("-m", "--reload-modules", action="store_true", dest="reloadmod", default=False, help="reload iptables kernel modules")
+    parser.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False, help="show verbose output of fw start/stop")
+    parser.add_option("-D", "--daemon", action="store_true", dest="daemon", default=False, help="start daemon for abyle frontend!")
+    parser.add_option("-V", "--version", action="store_true", dest="version", default=False, help="show version of pyfw modules")
+    parser.add_option("-t", "--install-interfaces-config", action="store_true", dest="install_ifs", default=False, help="install template config for any existing interface")
+    parser.add_option("-a", "--add-interface", dest="addinterface", help="add an protectable interface to abyle config")
+    parser.add_option("-p", "--config-path", dest="fwconfigpath", help="path to firewall configuration directory")
+    parser.add_option("-c", "--config-file-name", dest="xmlconfig", help="name of the configuration file")
+
+    (options, args) = parser.parse_args()
+
+    executioner = abyle_execute()
+
+
+    try:
+
+        try:
+            if not options.dryrun:
+                options.dryrun=False
+        except AttributeError:
+            options.dryrun=False
+
+
+        if options.fwconfigpath:
+            FWCONFIGPATH = options.fwconfigpath
+        else:
+            FWCONFIGPATH="/etc/abyle-firewall/"
+
+        if options.xmlconfig:
+            XMLCONFIG = options.xmlconfig
+        else:
+            XMLCONFIG="config.xml"
+
+        if not os.path.exists(FWCONFIGPATH):
+            abyle_output("cli_option_parser", "", "", "given config path: "+FWCONFIGPATH+" does not exist. exiting with status 2.")
+            sys.exit(2)
+
+        if options.install_ifs:
+            abyle_output("cli_option_parser", "", "", "copy template config for all existing interfaces! existing configs will be moved to "+FWCONFIGPATH+".old" )
+            EXISTING_INTERFACES = getAllInterfaces()
+            for intF in EXISTING_INTERFACES:
+                abyle_output("cli_option_parser", "", "", "copy default config to "+intF)
+                cmdIn, cmdOut, cmdErr = os.popen3('rm -rf '+FWCONFIGPATH+'.old')
+                cmdIn, cmdOut, cmdErr = os.popen3('mkdir '+FWCONFIGPATH+'.old')
+                cmdIn, cmdOut, cmdErr = os.popen3('mv '+FWCONFIGPATH+'interfaces/'+intF+' '+FWCONFIGPATH+'.old/'+intF)
+                cmdIn, cmdOut, cmdErr = os.popen3('cp -r '+FWCONFIGPATH+'template/interface '+FWCONFIGPATH+'interfaces/'+intF)
+
+        if options.addinterface:
+
+            global_config_writeable = abyle_config_write(FWCONFIGPATH, "default", XMLCONFIG)
+
+            tempAttributes = {}
+            tempAttributes["desc"]=""
+
+            global_config_writeable.buildNewNode("interface", options.addinterface, tempAttributes)
+            global_config_writeable.AddBuildedNode("/root/protect")
+
+            sys.exit(0)
+
+
+        checkWellformed = check_well_formedness(FWCONFIGPATH+XMLCONFIG)
+        if checkWellformed != "ok":
+            abyle_output("","","",checkWellformed, "red")
+            sys.exit(1)
+
+    # parse the config file
+        global_config = abyle_config_parse(FWCONFIGPATH, "default", XMLCONFIG)
+        try:
+            MAX_LOGFILE_SIZE = global_config.getConfig("max_logfile_size")
+            MAX_DAEMONLOGFILE_SIZE = global_config.getConfig("max_daemonlogfile_size")
+        except IndexError:
+            MAX_LOGFILE_SIZE = '1000000'
+            MAX_DAEMONLOGFILE_SIZE = '1000000'
+        try:
+            LOGFILE = global_config.getConfig("logfile")
+            if os.path.exists(LOGFILE):
+                LOGFILE_size = os.path.getsize(LOGFILE)
+                if  int(LOGFILE_size) > int(MAX_LOGFILE_SIZE):
+                    os.remove(LOGFILE)
+
+        except IndexError:
+            LOGFILE = '/dev/null'
+
+        try:
+            DAEMONLOGFILE = global_config.getConfig("daemonlogfile")
+            if os.path.exists(DAEMONLOGFILE):
+                DAEMONLOGFILE_size = os.path.getsize(DAEMONLOGFILE)
+                if long(DAEMONLOGFILE_size) > long(MAX_DAEMONLOGFILE_SIZE):
+                    os.remove(DAEMONLOGFILE)
+
+        except IndexError:
+            DAEMONLOGFILE = '/dev/null'
+
+        RULESFILE =  global_config.getConfig("rulesfile")
+        KERNELMODULES  =  global_config.getConfig("modules")
+        try:
+            PROTECTED_INTERFACES = global_config.getConfig("interface")
+        except IndexError:
+            abyle_output("","","","no interfaces to protect to, please specify interfaces in the global config.xml or run abyle-firewall -t", "red")
+            sys.exit(1)
+
+        EXCLUDED_INTERFACES = global_config.getConfig("excluded_interfaces")
+        MODPROBE = global_config.getConfig("modprobe")
+        IPTABLES = global_config.getConfig("iptables")
+        IPT_XMLCONFIG = global_config.getConfig("iptflagfile")
+        ECHOCMD = global_config.getConfig("echocmd")
+        # end parse the config file
+
+
+        if not options.statusfw and not options.stopfw and not options.reloadmod and not options.startfw and not options.restartfw and not options.version and not options.dryrunfw and not options.install_ifs and not options.daemon:
+            abyle_output("cli_option_parser", "", "", "no options given use --help to get more info")
+        else:
+
+            if options.daemon:
+                output = abyle_output("","","","","default", DAEMONLOGFILE)
+                output.startup("starting frontend daemon . . .")
+                realDaemon(FWCONFIGPATH, XMLCONFIG, True, DAEMONLOGFILE)
+                #frontendDaemon(FWCONFIGPATH, XMLCONFIG, options.verbose, DAEMONLOGFILE)
+
+            if options.statusfw:
+                stdOut, stdErr = executioner.run(IPTABLES+' -v -L', options.dryrun)
+                abyle_output("cli_option_parser", stdErr, stdOut, "iptables -L -v -- failed??")
+                stdOut, stdErr = executioner.run(IPTABLES+' -v -L PREROUTING -t nat', options.dryrun)
+                abyle_output("cli_option_parser", stdErr, stdOut, "iptables -L -v -- failed??")
+                stdOut, stdErr = executioner.run(IPTABLES+' -v -L POSTROUTING -t nat', options.dryrun)
+                abyle_output("cli_option_parser", stdErr, stdOut, "iptables -L -v -- failed??")
+
+            if options.restartfw:
+
+                EXISTING_INTERFACES = getAllInterfaces()
+                for intF in EXISTING_INTERFACES:
+                    intcnt = PROTECTED_INTERFACES.count(intF)
+                    if intcnt == 0:
+                        excnt = EXCLUDED_INTERFACES.count(intF)
+                        if excnt == 0:
+                            abyle_output("pyfwscript_startfw_config_check", "", "", "WARNING!!! interface "+intF+" not configured everything will be blocked!")
+                stopfw(options.dryrunfw, options.verbose, LOGFILE, "secure")
+                fw = abyle_firewall(options.dryrunfw, IPTABLES, FWCONFIGPATH, RULESFILE, IPT_XMLCONFIG, XMLCONFIG, ECHOCMD, LOGFILE, options.verbose)
+                PIcnt_max = 0
+                for iface in PROTECTED_INTERFACES:
+                    PIcnt_max = PIcnt_max + 1
+
+                PIcnt = 0
+                for iface in PROTECTED_INTERFACES:
+                    PIcnt = PIcnt + 1
+                    fw.buildUp(iface, FWCONFIGPATH, options.verbose)
+
+                    if PIcnt == PIcnt_max:
+                        fw.buildUpFinish(options.verbose)
+
+                clearChains=["INPUT", "FORWARD", "OUTPUT"]
+
+                for chain in clearChains:
+                    try:
+                        stdOut, stdErr = executioner.run(IPTABLES+' -D '+chain+' 1', options.dryrun)
+                    except AttributeError:
+                        stdOut, stdErr = executioner.run(IPTABLES+' -D '+chain+' 1', False)
+                    try:
+                        stdOut, stdErr = executioner.run(IPTABLES+' -D '+chain+' 1', options.dryrun)
+                    except AttributeError:
+                        stdOut, stdErr = executioner.run(IPTABLES+' -D '+chain+' 1', False)
+
+
+
+
+            if options.stopfw:
+                stopfw(options.dryrunfw, options.verbose, LOGFILE)
+
+            if options.reloadmod:
+                prepare_firewall(KERNELMODULES, options.dryrun)
+
+            if options.version:
+                changelog = abyle_changelog_parse(FWCONFIGPATH, "changelog.xml")
+                changelog.getChangelog()
+
+            if options.startfw:
+                EXISTING_INTERFACES = getAllInterfaces()
+                for intF in EXISTING_INTERFACES:
+                    intcnt = PROTECTED_INTERFACES.count(intF)
+                    if intcnt == 0:
+                        excnt = EXCLUDED_INTERFACES.count(intF)
+                        if excnt == 0:
+                            abyle_output("pyfwscript_startfw_config_check", "", "", "WARNING!!! interface "+intF+" not configured everything will be blocked!")
+                stopfw(options.dryrunfw, options.verbose, LOGFILE)
+                fw = abyle_firewall(options.dryrunfw, IPTABLES, FWCONFIGPATH, RULESFILE, IPT_XMLCONFIG, XMLCONFIG, ECHOCMD, LOGFILE, options.verbose)
+                PIcnt_max = 0
+                for iface in PROTECTED_INTERFACES:
+                    PIcnt_max = PIcnt_max + 1
+
+                PIcnt = 0
+                for iface in PROTECTED_INTERFACES:
+                    PIcnt = PIcnt + 1
+                    fw.buildUp(iface, FWCONFIGPATH, options.verbose)
+
+                    if PIcnt == PIcnt_max:
+                        fw.buildUpFinish(options.verbose)
+
+    except KeyboardInterrupt:
+        print ("Ctrl+C recognized.")
+        print ("it is not a good idea to disturb a starting wall of fire!")
+
+if __name__=='__main__': main()

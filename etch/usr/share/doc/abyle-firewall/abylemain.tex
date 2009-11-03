@@ -1,0 +1,90 @@
+%------------------------------------------------------------------------------
+%	Abyle Firewall Script
+%	DocVersion 0.0.1
+%------------------------------------------------------------------------------
+%------------------------------------------------------------------------------
+%	ChangeLog:
+%	-
+%------------------------------------------------------------------------------
+%------------------------------------------------------------------------------
+%	Todo:
+%	- Everything
+%------------------------------------------------------------------------------
+
+% document class (scr)book
+% pointednumbers = makes the dot at the end of the numbering
+\documentclass[12pt,oneside,a4paper,pointednumbers]{scrbook}
+
+
+%------------------------------------------------------------------------------
+%	Include Packages	-
+%------------------------------------------------------------------------------
+
+% page geometry
+\usepackage[left=3cm,right=1cm,top=2cm,bottom=2cm,includeheadfoot]{geometry}
+
+% lastpage package  - to get number of total pages
+\usepackage{lastpage}
+
+% fancy style package
+\usepackage{fancyhdr}
+
+\usepackage{ucs}
+\usepackage[utf8x]{inputenc}
+
+\usepackage{setspace}
+
+% set pagestyle to fancy
+\pagestyle{fancy}
+
+% clear all headers and footers
+\fancyhf{}
+
+% set fancypagestyle to plain
+\fancypagestyle{plain}{}
+
+% redefine heading line 
+\renewcommand{\headrulewidth}{0.1pt}
+
+% redefine footing line 
+\renewcommand{\footrulewidth}{0.1pt}
+
+% define headers and footers
+\fancyhead[C]{\nouppercase{\leftmark}}
+\fancyfoot[R]{Page~\thepage~of~\pageref{LastPage}}
+\fancyfoot[L]{\copyright{}team3.local}
+\fancyfoot[C]{\today}
+
+% set default font to sarif font
+\renewcommand{\familydefault}{\sfdefault}
+
+% set the depth of for table of contents
+\setcounter{tocdepth}{5}
+
+%set the available numbering depth
+\setcounter{secnumdepth}{5}
+
+
+\newcommand{\courierfont}{\fontfamily{pcr}\fontsize{12pt}{12pt}\selectfont}
+\newcommand{\dnl}{\newline\newline}
+
+\raggedbottom
+
+\begin{document}
+
+
+\title{Abyle - a python iptables firewall script}
+\author{Stefan Nistelberger\cr Daniel Schrammel\cr Hans-Peter Schadler}
+
+
+\maketitle
+
+\tableofcontents
+
+\input{chapters/license.tex}
+
+\input{chapters/installation.tex}
+
+
+
+\end{document}
