@@ -1,0 +1,14 @@
+<root>
+	<antispoofing>yes</antispoofing>
+	<logging>no</logging>
+	<allowping>yes</allowping>
+	<masquerading>no</masquerading>
+	<portforwarding>no</portforwarding>
+	<transparent_proxy>no</transparent_proxy>
+	<proxyarp>no</proxyarp>
+	<sourcerouting>no</sourcerouting>
+	<icmpredirects>no</icmpredirects>
+	<secureicmpredirects>no</secureicmpredirects>
+	<martianslogging>no</martianslogging>
+	<drop0slash8packets>no</drop0slash8packets>
+</root>

@@ -1,0 +1,95 @@
+<?xml version="1.0"?>
+<root>
+  <iptables>/sbin/iptables</iptables>
+  <modprobe>/sbin/modprobe</modprobe>
+  <fwconfigpath>/etc/abyle-firewall</fwconfigpath>
+  <iptflagfile>iptables_flags.xml</iptflagfile>
+  <rulesfile>rules.xml</rulesfile>
+  <echocmd>/bin/echo</echocmd>
+  <ipv4confpath>/proc/sys/net/ipv4/conf/</ipv4confpath>
+  <antispoofingfile>rp_filter</antispoofingfile>                        <!-- source validation by reversed path RFC1812 -->
+  <ipv4forwardfile>/proc/sys/net/ipv4/ip_forward</ipv4forwardfile>      <!-- enable/disable ipv4 forwarding -->
+  <dynaddresshackfile>/proc/sys/net/ipv4/ip_dynaddr</dynaddresshackfile>        <!-- rebinds tcp sockets if you have a dyn ip, dial on demand -->
+  <syncookiefile>/proc/sys/net/ipv4/tcp_syncookies</syncookiefile>      <!-- enables syn flood protection -->
+  <proxyarpfile>proxy_arp</proxyarpfile>                                <!-- enables proxy arp -->
+  <icmpbcastfile>/proc/sys/net/ipv4/icmp_echo_ignore_broadcasts</icmpbcastfile>         <!-- set 1, all icmp broadcast echo replies will be ignored -->
+  <sroutingfile>accept_source_route</sroutingfile>                                      <!-- set to 0 denies all source routed packets -->
+  <icmprdrsfile>accept_redirects</icmprdrsfile>                         <!-- set to 0 denies icmp redirects -->
+  <icmpsecurerdrsfile>secure_redirects</icmpsecurerdrsfile>             <!-- allow only known routes a icmp redirect -->
+  <martiansfile>log_martians</martiansfile>                             <!-- logs packets from impossible addresses -->
+  <tcpabortfile>/proc/sys/net/ipv4/tcp_abort_on_overflow</tcpabortfile> <!-- reset tcp connection if buffer is full -->
+  <bootprelayfile>bootp_relay</bootprelayfile>                          <!-- drops packets from 0.0.0.0/8 -->
+  <logfile>/var/log/abyle.log</logfile>                                 <!-- logfile for abyle firewall -->
+  <max_logfile_size>1000000</max_logfile_size>                          <!-- will be removed if larger than 1M -->
+  <fifopath>/var/run/abyle</fifopath>
+  <frontenduser>www-data</frontenduser>
+  <frontendgroup>www-data</frontendgroup>
+  <protect>
+  </protect>
+  <syncookie>yes</syncookie>
+  <ipv4forward>no</ipv4forward>
+  <dynaddresshack>no</dynaddresshack>
+  <answericmpbroadcast>yes</answericmpbroadcast>
+  <aborttcp>no</aborttcp>
+  <kernel>
+    <modules>iptables</modules>                 <!-- iptables main module -->
+    <modules>ip_conntrack</modules>             <!-- statefull connection tracking module -->
+    <modules>iptable_filter</modules>           <!-- filter table module -->
+    <modules>iptable_mangle</modules>           <!-- mangle table module -->
+    <modules>iptable_nat</modules>              <!-- nat module -->
+    <modules>ipt_MASQUERADE</modules>           <!-- masquerade module -->
+    <modules>ipt_LOG</modules>                  <!-- log target module -->
+    <modules>ipt_REJECT</modules>               <!-- reject target -->
+    <modules>ipt_mark</modules>                 <!-- allow to mark packets in the mangle table -->
+    <modules>ipt_tcpmss</modules>               <!-- tcp max. segment size -->
+    <modules>ipt_multiport</modules>            <!-- for multiport syntax -->
+    <modules>ipt_state</modules>                <!-- statefull tcp sessions -->
+    <modules>ipt_unclean</modules>              <!-- catches packets with invalid flags -->
+    <modules>ip_nat_ftp</modules>               <!-- ftp nat handling -->
+    <modules>ip_conntrack_ftp</modules>         <!-- ftp connection tracking -->
+    <modules>ip_nat_irc</modules>               <!-- irc nat handling -->
+    <modules>ip_conntrack_irc</modules>         <!-- irc connection tracking -->
+  </kernel>
+  <frontend>
+    <daemon>
+	<daemonenabled>no</daemonenabled>
+	<daemonlogfile>/var/log/abyled.log</daemonlogfile>
+  	<max_daemonlogfile_size>1000000</max_daemonlogfile_size>                          <!-- will be removed if larger than 1M -->
+	<temp_path>/tmp/.abyle-frontend</temp_path>
+        <input>
+          <commandmap>
+                <inputcmd>restart</inputcmd>
+                <syscmd>abyle-firewall -r</syscmd>
+          </commandmap>
+          <commandmap>
+                <inputcmd>stop</inputcmd>
+                <syscmd>abyle-firewall -b</syscmd>
+          </commandmap>
+          <commandmap>
+                <inputcmd>start</inputcmd>
+                <syscmd>abyle-firewall -s</syscmd>
+          </commandmap>
+          <commandmap>
+                <inputcmd>reloadkern</inputcmd>
+                <syscmd>abyle-firewall -m</syscmd>
+          </commandmap>
+          <commandmap>
+                <inputcmd>version</inputcmd>
+                <syscmd>abyle-firewall -V</syscmd>
+          </commandmap>
+          <commandmap>
+                <inputcmd>status</inputcmd>
+                <syscmd>abyle-firewall -i</syscmd>
+          </commandmap>
+          <commandmap>
+           	<inputcmd>conntrack</inputcmd>
+         	<syscmd>cat /proc/net/ip_conntrack</syscmd>
+          </commandmap>
+          <commandmap>
+           	<inputcmd>copy_config</inputcmd>
+         	<syscmd>cp_command</syscmd>
+          </commandmap>
+        </input>
+    </daemon>
+  </frontend>
+</root>
