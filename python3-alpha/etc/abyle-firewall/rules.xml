@@ -1,0 +1,30 @@
+<interface>
+
+  <blockruleshead blockchain="block">
+
+    <traffic chain="block" job="ACCEPT" state="ESTABLISHED,RELATED"></traffic>	
+    <!-- log every packet which passes the block chain -->
+    	<!-- <traffic chain="block" job="LOG"></traffic> -->
+
+  </blockruleshead>
+
+  <blockrulesfoot>
+
+    <traffic chain="block" job="DROP"></traffic>	
+    <traffic chain="INPUT" job="block"></traffic>	
+    <traffic chain="FORWARD" job="block"></traffic>
+
+  </blockrulesfoot>
+
+  <excluderule>
+    <traffic chain="INPUT" job="ACCEPT"></traffic>
+  </excluderule>
+
+  <pingrule>
+    <traffic chain="INPUT" job="ACCEPT" protocol="icmp" icmp-type="echo-request"></traffic>
+    <traffic chain="INPUT" job="ACCEPT" protocol="icmp" icmp-type="echo-reply"></traffic>
+    <traffic chain="INPUT" job="ACCEPT" protocol="icmp" icmp-type="time-exceeded"></traffic>
+    <traffic chain="INPUT" job="ACCEPT" protocol="icmp" icmp-type="destination-unreachable"></traffic>
+  </pingrule>
+
+</interface>
