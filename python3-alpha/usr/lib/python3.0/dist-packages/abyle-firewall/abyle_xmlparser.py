@@ -242,20 +242,22 @@ class abyleparse:
                             abyle_output("abyle_xmlparser.py: parsing error @ iptables flags:", "", "", sys.exc_info()[1], "red")
                             sys.exit(1)
 
-                        if xpathToMainNode.find("portforwarding") > 0 and attribute.name == "destination" :
-                            tempDestIpStr = attribute.value
+			
 
-                        elif xpathToMainNode.find("portforwarding") > 0 and attribute.name == "destination-port":
-                            tempDestPortStr = attribute.value
+                        if xpathToMainNode.find("portforwarding") > 0 and attribute == "destination" :
+                            tempDestIpStr = abstractNodes[cnt].get(attribute)
 
-                        elif xpathToMainNode.find("portforwarding") > 0 and attribute.name == "forward-port":
-                            tempForwardPortStr = attribute.value
+                        elif xpathToMainNode.find("portforwarding") > 0 and attribute == "destination-port":
+                            tempDestPortStr = abstractNodes[cnt].get(attribute)
 
-                        elif xpathToMainNode.find("transparentproxy") > 0 and attribute.name == "destination":
-                            tempDestIpStr = attribute.value
+                        elif xpathToMainNode.find("portforwarding") > 0 and attribute == "forward-port":
+                            tempForwardPortStr = abstractNodes[cnt].get(attribute)
 
-                        elif xpathToMainNode.find("transparentproxy") > 0 and attribute.name == "destination-port":
-                            tempDestPortStr = attribute.value
+                        elif xpathToMainNode.find("transparentproxy") > 0 and attribute == "destination":
+                            tempDestIpStr = abstractNodes[cnt].get(attribute)
+
+                        elif xpathToMainNode.find("transparentproxy") > 0 and attribute == "destination-port":
+                            tempDestPortStr = abstractNodes[cnt].get(attribute)
 
                         else:
                             # append the temp string to the self.attributestr
