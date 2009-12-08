@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -d
+#!/usr/bin/python
 
 # Copyright (C) 2005    Stefan Nistelberger (scuq@gmx.net)
 #                       Daniel Schrammel (nowx@gmx.at)
@@ -36,6 +36,9 @@ from abyle_config_xmlwriter import abyle_config_write
 from abyle_changelog_xmlparser import abyle_changelog_parse
 from xml.sax.handler import ContentHandler
 from xml.sax import make_parser
+from abyle_log import logger
+import logging
+import logging.handlers
 
 #from xml.dom.minidom import parse
 
@@ -69,41 +72,31 @@ def check_well_formedness(file):
         return str(file) + " is NOT well-formed! " + str(sys.exc_info()[1])
 
 # flush the iptables chain(s) with iptables -F
-def flush_chains(dryrun, table, LOGFILE, verbose, output):
-
+def flush_chains(dryrun, verbose, table, log):
+    
     executioner = abyle_execute()
 
     if table == "all":
         stdOut, stdErr = executioner.run(IPTABLES+' -F', dryrun)
 
         if verbose:
-            abyle_output("flush_chains", stdErr, stdOut, "flushed chains.", "default", LOGFILE)
-
-        else:
-            output.startup(".")
+            log.info("chains flushed")
 
         stdOut, stdErr = executioner.run(IPTABLES+' -X', dryrun)
 
         if verbose:
-            abyle_output("flush_chains", stdErr, stdOut, "deleted chains.", "default", LOGFILE)
-        else:
-            output.startup(".")
+            log.info("chains deleted")
 
     else:
         stdOut, stdErr = executioner.run(IPTABLES+' -t '+table+' -F', dryrun)
 
         if verbose:
-            abyle_output("flush_chains", stdErr, stdOut, "flushed chains for table "+table+".", "default", LOGFILE)
-        else:
-            output.startup(".")
+            log.info("chains flushed for table \""+table+"\"")
 
         stdOut, stdErr = executioner.run(IPTABLES+' -t '+table+' -X', dryrun)
 
         if verbose:
-            abyle_output("flush_chains", stdErr, stdOut, "deleted chains for table "+table+".", "default", LOGFILE)
-        else:
-            output.startup(".")
-
+            log.info("chains deleted for table \""+table+"\"")
 
 # preparing stuff, like loading kernel modules
 def prepare_firewall(KERNELMODULES, dryrun=False):
@@ -131,22 +124,13 @@ def getAllInterfaces(dryrun=False):
 
 # stop the firewall
 def stopfw(dryrun, verbose, LOGFILE, mode="unsecure"):
-    output = abyle_output("","","","","default", LOGFILE)
-    if verbose:
-        now = datetime.datetime.now()
-        now =  now.strftime("%Y/%m/%d %H:%M:%S")
-
-        abyle_output("", "", "", "","blue", LOGFILE)
-        abyle_output("", "", "", "Stopping Firewall","blue", LOGFILE)
-        abyle_output("", "", "", "","blue", LOGFILE)
-        abyle_output("", "", "", "time: "+now,"default", LOGFILE)
-        abyle_output("", "", "", "","blue", LOGFILE)
-    else:
-        output.startup("Stopping Firewall")
+    log = logger("abyle-firewall")
+    control = logger("abyle-control")
+    control.start_stop("Stopping Firewall ...")
 
     if mode == "unsecure":
-        flush_chains(dryrun, "all", LOGFILE, verbose, output)
-        flush_chains(dryrun, "nat", LOGFILE, verbose, output)
+        flush_chains(dryrun, verbose, "all", log)
+        flush_chains(dryrun, verbose, "nat", log)
     if mode == "secure":
 
         clearChains=["INPUT", "FORWARD", "OUTPUT"]
@@ -156,9 +140,7 @@ def stopfw(dryrun, verbose, LOGFILE, mode="unsecure"):
         for chain in clearChains:
 
             if verbose:
-                abyle_output("clearing_chains", "", "", "clearing chain "+chain, "default", LOGFILE)
-            else:
-                output.startup(".")
+                log.info("clearing chain \""+chain+"\"")
 
             stdOut, stdErr = executioner.run(IPTABLES+' -I '+chain+' -j ACCEPT -m state --state ESTABLISHED,RELATED', dryrun)
             stdOut, stdErr = executioner.run(IPTABLES+' -I '+chain+' 2 -j DROP', dryrun)
@@ -184,10 +166,7 @@ def stopfw(dryrun, verbose, LOGFILE, mode="unsecure"):
         ruleCount = 0
         for blockRule in blockRules:
             if verbose:
-                abyle_output("clearing_chains", "", "", "clearing chain block", "default", LOGFILE)
-            else:
-                output.startup(".")
-
+                log.info("clearing chain \"block\"")
             blockRule=retrim(blockRule)
             blockRule=blockRule.split(' ', 4)
             try:
@@ -203,33 +182,15 @@ def stopfw(dryrun, verbose, LOGFILE, mode="unsecure"):
 
         stdOut, stdErr = executioner.run(IPTABLES+' -X', dryrun)
         if verbose:
-            abyle_output("clearing_chains", stdErr, stdOut, "deleting non default chains", "default", LOGFILE)
-        else:
-            output.startup(".")
+            log.info("deleting non default chains")
 
         stdOut, stdErr = executioner.run(IPTABLES+' -t nat -F PREROUTING ', dryrun)
         if verbose:
-            abyle_output("clearing_chains", stdErr, stdOut, "deleting nat PREROUTING", "default", LOGFILE)
-        else:
-            output.startup(".")
+            log.info("deleting nat PREROUTING")
 
         stdOut, stdErr = executioner.run(IPTABLES+' -t nat -F POSTROUTING ', dryrun)
         if verbose:
-            abyle_output("clearing_chains", stdErr, stdOut, "deleting nat POSTROUTING", "default", LOGFILE)
-        else:
-            output.startup(".")
-
-    if not verbose:
-        try:
-            con_size = string.join(os.popen("stty size 2>/dev/null").readlines())
-            arr_con_size = string.split(con_size," ")
-            size = string.atoi(arr_con_size[1])-13
-            size = size+4
-            a = string.join(os.popen("echo -n \033[$(("+str(size)+"))G && echo -n   [DONE] "))
-            output.startup(a, "blue", "yes")
-        except IndexError:
-            output.startup("[DONE]\n")
-
+            log.info("deleting nat POSTROUTING")
 
 def frontendDaemon(FWCONFIGPATH, XMLCONFIG, verbose, LOGFILE):
 
@@ -245,7 +206,7 @@ def frontendDaemon(FWCONFIGPATH, XMLCONFIG, verbose, LOGFILE):
         abyle_output("", "", "", "startup time: "+now,"default", LOGFILE)
         abyle_output("", "", "", "","default", LOGFILE)
 
-        global_config = abyle_config_parse(FWCONFIGPATH, "default", XMLCONFIG)
+        global_config = abyle_config_parse(FWCONFIGPATH, "default", XMLCONFIG, verbose)
 
         try:
             fifoPath = global_config.getConfig("fifopath")
@@ -479,6 +440,21 @@ def realDaemon(FWCONFIGPATH, XMLCONFIG, verbose, LOGFILE):
 
 def main():
 
+	# get the root logging instance from python logging module
+    consoleFormat = ('%(name)s: %(message)s')
+    fileFormat = ('%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+
+	#setup console handler
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.WARNING)
+    ch.setFormatter(logging.Formatter(consoleFormat))
+
+    #add the console handler to our root logger
+    root_logger.addHandler(ch)
+
+
     global IPTABLES
     global MODPROBE
 
@@ -498,9 +474,6 @@ def main():
     parser.add_option("-c", "--config-file-name", dest="xmlconfig", help="name of the configuration file")
 
     (options, args) = parser.parse_args()
-
-    if options.verbose:
-        abyle_output("cli_option_parser", "", "" , "verbose mode on.")
 
     executioner = abyle_execute()
 
@@ -525,14 +498,14 @@ def main():
             XMLCONFIG="config.xml"
 
         if not os.path.exists(FWCONFIGPATH):
-            abyle_output("cli_option_parser", "", "", "given config path: "+FWCONFIGPATH+" does not exist. exiting with status 2.")
+            root_logger.error("\033[31mgiven config path: "+FWCONFIGPATH+" does not exist. exiting with status 2.\033[1;0m")
             sys.exit(2)
 
         if options.install_ifs:
-            abyle_output("cli_option_parser", "", "", "copy template config for all existing interfaces! existing configs will be moved to "+FWCONFIGPATH+".old" )
+            root_logger.warning("copy template config for all existing interfaces! existing configs will be moved to "+FWCONFIGPATH+".old")
             EXISTING_INTERFACES = getAllInterfaces()
             stdOut, stdErr = executioner.run('rm -rf '+FWCONFIGPATH+'.old',options.dryrun)
-            abyle_output("cli_option_parser", "", "", "copy default config")
+            root_logger.warning("copy default config")
             stdOut, stdErr = executioner.run('mkdir '+FWCONFIGPATH+'.old', options.dryrun)
             for intF in EXISTING_INTERFACES:
                  stdOut, stdErr = executioner.run('mv '+FWCONFIGPATH+'interfaces/'+intF+' '+FWCONFIGPATH+'.old/'+intF, options.dryrun)
@@ -554,11 +527,11 @@ def main():
 
         checkWellformed = check_well_formedness(FWCONFIGPATH+XMLCONFIG)
         if checkWellformed != "ok":
-            abyle_output("","","",checkWellformed, "red")
+            root_logger.error("\033[31m"+checkWellformed+"\033[1;0m")
             sys.exit(1)
 
-    # parse the config file
-        global_config = abyle_config_parse(FWCONFIGPATH, "default", XMLCONFIG)
+    	# parse the config file
+        global_config = abyle_config_parse(FWCONFIGPATH, "default", XMLCONFIG, options.verbose)
         try:
             MAX_LOGFILE_SIZE = global_config.getConfig("max_logfile_size")
             MAX_DAEMONLOGFILE_SIZE = global_config.getConfig("max_daemonlogfile_size")
@@ -567,35 +540,49 @@ def main():
             MAX_DAEMONLOGFILE_SIZE = '1000000'
         try:
             LOGFILE = global_config.getConfig("logfile")
-            if os.path.exists(LOGFILE):
-                LOGFILE_size = os.path.getsize(LOGFILE)
-                if  int(LOGFILE_size) > int(MAX_LOGFILE_SIZE):
-                    os.remove(LOGFILE)
-
         except IndexError:
             LOGFILE = '/dev/null'
 
         try:
             DAEMONLOGFILE = global_config.getConfig("daemonlogfile")
-            if os.path.exists(DAEMONLOGFILE):
-                DAEMONLOGFILE_size = os.path.getsize(DAEMONLOGFILE)
-                if long(DAEMONLOGFILE_size) > long(MAX_DAEMONLOGFILE_SIZE):
-                    os.remove(DAEMONLOGFILE)
-
         except IndexError:
             DAEMONLOGFILE = '/dev/null'
+
+        logfileBackupFiles = 2
+        logfileMode = 'w'
+
+        #setup file handler
+        fh = logging.handlers.RotatingFileHandler(LOGFILE,maxBytes=MAX_LOGFILE_SIZE, backupCount=logfileBackupFiles, mode=logfileMode)
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(logging.Formatter(fileFormat))
+
+		#add the file handler to our root logger
+        root_logger.addHandler(fh)
+
+        log = logger("abyle-firewall")
+
+        if options.verbose:
+            log.warning("verbose mode on. see logfile for debug messages")
+            log.warning("logfile: "+LOGFILE)
 
         RULESFILE =  global_config.getConfig("rulesfile")
         KERNELMODULES  =  global_config.getConfig("modules")
         try:
             PROTECTED_INTERFACES = global_config.getConfig("interface")
         except IndexError:
-            abyle_output("","","","no interfaces to protect to, please specify interfaces in the global config.xml or run abyle-firewall -t", "red")
+            log.error("no interfaces to protect, please specify interfaces in the global config.xml or run abyle-firewall -t")
             sys.exit(1)
 
         EXCLUDED_INTERFACES = global_config.getConfig("excluded_interfaces")
-        if options.verbose:
-            abyle_output("abyle_main_script", "", "" , "excluded interfaces: "+str(EXCLUDED_INTERFACES))
+        if len(EXCLUDED_INTERFACES) > 0:
+            if options.verbose:
+                INTF_STRING = ""
+                for NAME in EXCLUDED_INTERFACES:
+                    if INTF_STRING == "":
+                        INTF_STRING = NAME
+                    else:
+                        INTF_STRING = INTF_STRING+", "+NAME
+                log.warning("excluded interfaces: "+INTF_STRING)
         MODPROBE = global_config.getConfig("modprobe")
         IPTABLES = global_config.getConfig("iptables")
         IPT_XMLCONFIG = global_config.getConfig("iptflagfile")
@@ -604,7 +591,7 @@ def main():
 
 
         if not options.statusfw and not options.stopfw and not options.reloadmod and not options.startfw and not options.restartfw and not options.version and not options.dryrunfw and not options.install_ifs and not options.daemon:
-            abyle_output("cli_option_parser", "", "", "no options given use --help to get more info")
+            log.error("no options given. use --help to get more information")
         else:
 
             if options.daemon:
@@ -615,11 +602,18 @@ def main():
 
             if options.statusfw:
                 stdOut, stdErr = executioner.run(IPTABLES+' -v -L', options.dryrun)
-                abyle_output("cli_option_parser", stdErr, stdOut, "iptables -L -v -- failed??")
+                #abyle_output("cli_option_parser", stdErr, stdOut, "iptables -L -v -- failed??")
+                if stdErr:
+                    log.error("iptables -L -v -- failed?")
+                if stdOut:
+                    for line in stdOut:
+                        log.info(line)
                 stdOut, stdErr = executioner.run(IPTABLES+' -v -L PREROUTING -t nat', options.dryrun)
-                abyle_output("cli_option_parser", stdErr, stdOut, "iptables -L -v -- failed??")
+                #abyle_output("cli_option_parser", stdErr, stdOut, "iptables -L -v -- failed??")
+                log.error("iptables -L -v -- failed?")
                 stdOut, stdErr = executioner.run(IPTABLES+' -v -L POSTROUTING -t nat', options.dryrun)
-                abyle_output("cli_option_parser", stdErr, stdOut, "iptables -L -v -- failed??")
+                #abyle_output("cli_option_parser", stdErr, stdOut, "iptables -L -v -- failed??")
+                log.error("iptables -L -v -- failed?")
 
             if options.restartfw:
 
@@ -629,7 +623,7 @@ def main():
                     if intcnt == 0:
                         excnt = EXCLUDED_INTERFACES.count(intF)
                         if excnt == 0:
-                            abyle_output("pyfwscript_startfw_config_check", "", "", "WARNING!!! interface "+intF+" not configured everything will be blocked!")
+                            log.warning("interface "+intF+" not configured everything will be blocked!")
                 stopfw(options.dryrunfw, options.verbose, LOGFILE, "secure")
                 fw = abyle_firewall(options.dryrunfw, IPTABLES, FWCONFIGPATH, RULESFILE, IPT_XMLCONFIG, XMLCONFIG, ECHOCMD, LOGFILE, options.verbose)
                 PIcnt_max = 0
@@ -676,7 +670,7 @@ def main():
                     if intcnt == 0:
                         excnt = EXCLUDED_INTERFACES.count(intF)
                         if excnt == 0:
-                            abyle_output("pyfwscript_startfw_config_check", "", "", "WARNING!!! interface "+intF+" not configured everything will be blocked!")
+                            log.warning("interface "+intF+" not configured everything will be blocked!")
                 stopfw(options.dryrunfw, options.verbose, LOGFILE)
                 fw = abyle_firewall(options.dryrunfw, IPTABLES, FWCONFIGPATH, RULESFILE, IPT_XMLCONFIG, XMLCONFIG, ECHOCMD, LOGFILE, options.verbose)
                 PIcnt_max = 0
@@ -692,7 +686,7 @@ def main():
                         fw.buildUpFinish(options.verbose)
 
     except KeyboardInterrupt:
-        print ("Ctrl+C recognized.")
-        print ("it is not a good idea to disturb a starting wall of fire!")
+        log.error("Ctrl+C recognized.")
+        log.error("it is not a good idea to disturb a starting wall of fire!")
 
 if __name__=='__main__': main()
