@@ -4,13 +4,14 @@ import string
 import time
 import datetime
 import sys
-from abyle_output import abyle_output
 from abyle_xmlparser import abyleparse
 from abyle_execute import abyle_execute
 from abyle_config_xmlparser import abyle_config_parse
 from xml.sax.handler import ContentHandler
 from xml.sax import make_parser
+from abyle_log import logger
 
+control = logger("abyle-control")
 
 class abyle_firewall:
     def __init__(self, dryrun, iptablesbin, fwconfigpath, rulesfile, ipt_xmlconfig, xmlconfig, echocmd, logfile, verbose):
@@ -28,7 +29,7 @@ class abyle_firewall:
 
         self.echocmd = echocmd
 
-        global_config = abyle_config_parse(fwconfigpath, "default", xmlconfig)
+        global_config = abyle_config_parse(fwconfigpath, "default", xmlconfig, self.verbose)
 
         self.excludedInterfaces = global_config.getConfig("excluded_interfaces")
 
@@ -123,66 +124,50 @@ class abyle_firewall:
         except IndexError:
             self.bootprelay_file = "bootp_relay"
 
-
-
-        now = datetime.datetime.now()
-        now =  now.strftime("%Y/%m/%d %H:%M:%S")
-        abyle_output("", "", "", "","blue", self.logfile, self.verbose)
-        abyle_output("", "", "", "######################################### STARTUP #########################################","green", self.logfile, self.verbose)
-        abyle_output("", "", "", "","blue", self.logfile, self.verbose)
-        abyle_output("", "", "", "startup time: "+now,"default", self.logfile, self.verbose)
-        abyle_output("", "", "", "","blue", self.logfile, self.verbose)
-
-        abyle_output("","","","IPv4 send RST on full tcp buffer:", "blue", self.logfile, self.verbose)
+        log = logger("firewall")
 
         if not self.tcpabort == "NO":
             stdOut, stdErr = self.executioner.run(self.echocmd+' 1 > '+self.tcpabort_file, self.dryrun)
-            abyle_output("abyle_firewall", stdErr, stdOut, "ipv4 send TCP-RST on full buffer is activated","default", self.logfile, self.verbose)
+            log.info("ipv4 send TCP-RST on full buffer is activated")
         else:
             stdOut, stdErr = self.executioner.run(self.echocmd+' 0 > '+self.tcpabort_file, self.dryrun)
-            abyle_output("abyle_firewall", stdErr, stdOut, "ipv4 send TCP-RST on full buffer is deactivated","default", self.logfile, self.verbose)
+            log.info("ipv4 send TCP-RST on full buffer is deactivated")
 
-        abyle_output("","","","IPv4 Reply to ICMP Broadcast:", "blue", self.logfile, self.verbose)
 
         if not self.icmpbcastreply == "NO":
             stdOut, stdErr = self.executioner.run(self.echocmd+' 1 > '+self.icmpbcastreply_file, self.dryrun)
-            abyle_output("abyle_firewall", stdErr, stdOut, "ipv4 reply to ICMP Broadcasts is deactivated","default", self.logfile, self.verbose)
+            log.info("ipv4 reply to ICMP Broadcasts is deactivated")
         else:
             stdOut, stdErr = self.executioner.run(self.echocmd+' 0 > '+self.icmpbcastreply_file, self.dryrun)
-            abyle_output("abyle_firewall", stdErr, stdOut, "ipv4 reply to ICMP Broadcasts is activated","default", self.logfile, self.verbose)
+            log.info("ipv4 reply to ICMP Broadcasts is activated")
 
-        abyle_output("","","","IPv4 Dynamic-Address-Hack:", "blue", self.logfile, self.verbose)
 
         if not self.dynaddresshack == "NO":
             stdOut, stdErr = self.executioner.run(self.echocmd+' 1 > '+self.dynaddresshack_file, self.dryrun)
-            abyle_output("abyle_firewall", stdErr, stdOut, "ipv4 dynamic address hack activated","default", self.logfile, self.verbose)
+            log.info("ipv4 dynamic address hack activated")
         else:
             stdOut, stdErr = self.executioner.run(self.echocmd+' 0 > '+self.dynaddresshack_file, self.dryrun)
-            abyle_output("abyle_firewall", stdErr, stdOut, "ipv4 dynamic address hack deactivated","default", self.logfile, self.verbose)
-
-        abyle_output("","","","IPv4 FORWARDING:", "blue", self.logfile, self.verbose)
+            log.info("ipv4 dynamic address hack deactivated")
 
         if not self.ipv4forward == "NO":
             stdOut, stdErr = self.executioner.run(self.echocmd+' 1 > '+self.ipv4forwardfile, self.dryrun)
-            abyle_output("abyle_firewall", stdErr, stdOut, "ipv4 forwarding activated","default", self.logfile, self.verbose)
+            log.info("ipv4 forwarding activated")
         else:
             stdOut, stdErr = self.executioner.run(self.echocmd+' 0 > '+self.ipv4forwardfile, self.dryrun)
-            abyle_output("abyle_firewall", stdErr, stdOut, "ipv4 forwarding deactivated","default", self.logfile, self.verbose)
-
-        abyle_output("","","","SYNCOOKIE:", "blue", self.logfile, self.verbose)
+            log.info("ipv4 forwarding deactivated")
 
         if not self.syncookie == "NO":
             stdOut, stdErr = self.executioner.run(self.echocmd+' 1 > '+self.syncookiefile, self.dryrun)
-            abyle_output("abyle_firewall", stdErr, stdOut, "syncookie activated","default", self.logfile, self.verbose)
+            log.info("syncookie activated")
         else:
             stdOut, stdErr = self.executioner.run(self.echocmd+' 0 > '+self.syncookiefile, self.dryrun)
-            abyle_output("abyle_firewall", stdErr, stdOut, "syncookie deactivated","default", self.logfile, self.verbose)
+            log.info("syncookie deactivated")
 
-        self.default_config = abyleparse(self.fwconfigpath, "default", self.rulesfile, self.ipt_xmlconfig, self.excludedInterfaces)
+        self.default_config = abyleparse(self.fwconfigpath, "default", self.rulesfile, self.ipt_xmlconfig, self.excludedInterfaces, self.verbose)
         self.defaultrules =  self.default_config.getDefaultRules("head")
 
         for drule in self.defaultrules:
-            abyle_output("abyle_firewall_buildUpFinish_head", "", "", "default-rule: "+drule,"default", self.logfile, self.verbose)
+            log.info("default-rule: "+drule)
             stdOut, stdErr = self.executioner.run(self.iptablesbin+' '+drule, self.dryrun)
 
 
@@ -199,35 +184,23 @@ class abyle_firewall:
     def buildUpFinish(self, verbose):
         self.verbose = verbose
 
-        now = datetime.datetime.now()
-        now =  now.strftime("%Y/%m/%d %H:%M:%S")
-        self.defaultrules =  self.default_config.getDefaultRules("foot")
-        abyle_output("","","","SETTING UP DEFAULT RULES:", "blue", self.logfile, self.verbose)
-        for drule in self.defaultrules:
-            abyle_output("abyle_firewall_buildUpFinish_foot", "", "", "default-rule: "+drule, "default", self.logfile, self.verbose)
-            stdOut, stdErr = self.executioner.run(self.iptablesbin+' '+drule, self.dryrun)
-        abyle_output("", "", "", "", "blue", self.logfile, self.verbose)
-        abyle_output("", "", "", "Startup done - "+now,"blue", self.logfile, self.verbose)
-        abyle_output("", "", "", "", "blue", self.logfile, self.verbose)
-        abyle_output("", "", "", "######################################### END #########################################","green", self.logfile, self.verbose)
-        abyle_output("", "", "", "", "blue", self.logfile, self.verbose)
+        log = logger("abyle-firewall")
 
+        self.defaultrules =  self.default_config.getDefaultRules("foot")
+        log.info("SETTING UP DEFAULT RULES:")
+        for drule in self.defaultrules:
+            log.info("default-rule: "+drule)
+            stdOut, stdErr = self.executioner.run(self.iptablesbin+' '+drule, self.dryrun)
 
     def buildUp(self,protectedif,fwconfigpath, verbose):
         self.verbose = verbose
 
-
         self.protectedif = protectedif
         self.fwconfigpath = fwconfigpath
-        abyle_output("", "", "", "", "blue", self.logfile, self.verbose)
-        abyle_output("", "", "", "", "blue", self.logfile, self.verbose)
-        abyle_output("", "", "", "Interface: "+self.protectedif, "green", self.logfile, self.verbose)
-        abyle_output("", "", "", "", "blue", self.logfile, self.verbose)
-        abyle_output("", "", "", "", "blue", self.logfile, self.verbose)
 
-        if not self.verbose:
-            self.output = abyle_output("","","","","default", self.logfile, self.verbose)
-            self.output.startup("securing "+self.protectedif)
+        log = logger("abyle-firewall")
+	self.control = control
+        self.control.start_stop("securing "+self.protectedif,"EXCLUDED")
 
         if os.path.exists(self.fwconfigpath+'/'+'interfaces/'+self.protectedif) or self.excludedInterfaces.count(self.protectedif) > 0:
 
@@ -236,14 +209,13 @@ class abyle_firewall:
                 tempFileStr = self.fwconfigpath+'interfaces/'+self.protectedif+'/'+self.xmlconfig
                 checkWellformed = self.check_well_formedness(tempFileStr)
                 if checkWellformed != "ok":
-                    abyle_output("","","",checkWellformed, "red", self.logfile, self.verbose)
+                    log.error(checkWellformed)
                     sys.exit(1)
                 else:
-                    abyle_output("","","",self.fwconfigpath+'interfaces/'+self.protectedif+'/'+self.xmlconfig + " is a well-formed xml", "green", self.logfile, self.verbose)
-
+                    log.info(self.fwconfigpath+"interfaces/"+self.protectedif+"/"+self.xmlconfig+" is a well-formed xml")
 
                 #parse the config file
-                self.if_config = abyle_config_parse(self.fwconfigpath, self.protectedif, self.xmlconfig)
+                self.if_config = abyle_config_parse(self.fwconfigpath, self.protectedif, self.xmlconfig, self.verbose)
 
                 try:
                     self.antispoofing = self.if_config.getConfig("antispoofing")
@@ -325,193 +297,105 @@ class abyle_firewall:
 
                 # interface specific protections
 
-                abyle_output("","","","PROXY ARP:", "blue", self.logfile, self.verbose)
-                if not self.verbose:
-                    self.output.startup(".")
-
                 if self.proxyarp == "YES":
                     stdOut, stdErr = self.executioner.run(self.echocmd+' 1 > '+self.ipv4conf_path+self.protectedif+'/'+self.proxyarp_file, self.dryrun)
-                    abyle_output("abyle_firewall_buildUp", stdErr, stdOut, "proxy arp activated for "+self.protectedif+"","default", self.logfile, self.verbose)
+                    log.info("proxy arp activated for "+self.protectedif)
                 else:
                     stdOut, stdErr = self.executioner.run(self.echocmd+' 0 > '+self.ipv4conf_path+self.protectedif+'/'+self.proxyarp_file, self.dryrun)
-                    abyle_output("abyle_firewall_buildUp", stdErr, stdOut, "proxy arp deactivated for "+self.protectedif+"","default", self.logfile, self.verbose)
-
-                abyle_output("","","","SOURCE ROUTING:", "blue", self.logfile, self.verbose)
-                if not self.verbose:
-                    self.output.startup(".")
+                    log.info("proxy arp deactivated for "+self.protectedif)
 
                 if self.srouting == "YES":
                     stdOut, stdErr = self.executioner.run(self.echocmd+' 1 > '+self.ipv4conf_path+self.protectedif+'/'+self.srouting_file, self.dryrun)
-                    abyle_output("abyle_firewall_buildUp", stdErr, stdOut, "allow source routing activated for "+self.protectedif+"","default", self.logfile, self.verbose)
+                    log.info("allow source routing activated for "+self.protectedif)
                 else:
                     stdOut, stdErr = self.executioner.run(self.echocmd+' 0 > '+self.ipv4conf_path+self.protectedif+'/'+self.srouting_file, self.dryrun)
-                    abyle_output("abyle_firewall_buildUp", stdErr, stdOut, "allow source routing deactivated for "+self.protectedif+"","default", self.logfile, self.verbose)
-
-                abyle_output("","","","ICMP REDIRECTS:", "blue", self.logfile, self.verbose)
-                if not self.verbose:
-                    self.output.startup(".")
+                    log.info("allow source routing deactivated for "+self.protectedif)
 
                 if self.icmprdrs == "YES":
                     stdOut, stdErr = self.executioner.run(self.echocmd+' 1 > '+self.ipv4conf_path+self.protectedif+'/'+self.icmpredirects_file, self.dryrun)
-                    abyle_output("abyle_firewall_buildUp", stdErr, stdOut, "icmp redirects activated for "+self.protectedif+"","default", self.logfile, self.verbose)
+                    log.info("icmp redirects activated for "+self.protectedif)
                 else:
                     stdOut, stdErr = self.executioner.run(self.echocmd+' 0 > '+self.ipv4conf_path+self.protectedif+'/'+self.icmpredirects_file, self.dryrun)
-                    abyle_output("abyle_firewall_buildUp", stdErr, stdOut, "icmp redirects deactivated for "+self.protectedif+"","default", self.logfile, self.verbose)
-
-                abyle_output("","","","SECURE ICMP REDIRECTS:", "blue", self.logfile, self.verbose)
-                if not self.verbose:
-                    self.output.startup(".")
+                    log.info("icmp redirects deactivated for "+self.protectedif)
 
                 if self.sicmprdrs == "YES":
                     stdOut, stdErr = self.executioner.run(self.echocmd+' 1 > '+self.ipv4conf_path+self.protectedif+'/'+self.secureicmpredirects_file, self.dryrun)
-                    abyle_output("abyle_firewall_buildUp", stdErr, stdOut, "secure icmp redirects activated for "+self.protectedif+"","default", self.logfile, self.verbose)
+                    log.info("secure icmp redirects activated for "+self.protectedif)
                 else:
                     stdOut, stdErr = self.executioner.run(self.echocmd+' 0 > '+self.ipv4conf_path+self.protectedif+'/'+self.secureicmpredirects_file, self.dryrun)
-                    abyle_output("abyle_firewall_buildUp", stdErr, stdOut, "secure icmp redirects deactivated for "+self.protectedif+"","default", self.logfile, self.verbose)
-
-                abyle_output("","","","LOG MARTIAN-IPs:", "blue", self.logfile, self.verbose)
-                if not self.verbose:
-                    self.output.startup(".")
+                    log.info("secure icmp redirects deactivated for "+self.protectedif)
 
                 if self.martians == "YES":
                     stdOut, stdErr = self.executioner.run(self.echocmd+' 1 > '+self.ipv4conf_path+self.protectedif+'/'+self.martians_file, self.dryrun)
-                    abyle_output("abyle_firewall_buildUp", stdErr, stdOut, "martians logging activated for "+self.protectedif+"","default", self.logfile, self.verbose)
+                    log.info("martians logging activated for "+self.protectedif)
                 else:
                     stdOut, stdErr = self.executioner.run(self.echocmd+' 0 > '+self.ipv4conf_path+self.protectedif+'/'+self.martians_file, self.dryrun)
-                    abyle_output("abyle_firewall_buildUp", stdErr, stdOut, "martians logging deactivated for "+self.protectedif+"","default", self.logfile, self.verbose)
-
-                abyle_output("","","","Drop 0/8 packets.", "blue", self.logfile, self.verbose)
-                if not self.verbose:
-                    self.output.startup(".")
+                    log.info("martians logging deactivated for "+self.protectedif)
 
                 if self.bootprelay == "YES":
                     stdOut, stdErr = self.executioner.run(self.echocmd+' 1 > '+self.ipv4conf_path+self.protectedif+'/'+self.bootprelay_file, self.dryrun)
-                    abyle_output("abyle_firewall_buildUp", stdErr, stdOut, "dropping packets from 0/8 activated for "+self.protectedif+"","default", self.logfile, self.verbose)
+                    log.info("dropping packets from 0/8 activated for "+self.protectedif)
                 else:
                     stdOut, stdErr = self.executioner.run(self.echocmd+' 0 > '+self.ipv4conf_path+self.protectedif+'/'+self.bootprelay_file, self.dryrun)
-                    abyle_output("abyle_firewall_buildUp", stdErr, stdOut, "dropping packets from 0/8 deactivated for "+self.protectedif+"","default", self.logfile, self.verbose)
-
-
-
-
-
-
-                abyle_output("","","","ANTI SPOOFING:", "blue", self.logfile, self.verbose)
-                if not self.verbose:
-                    self.output.startup(".")
+                    log.info("dropping packets from 0/8 deactivated for "+self.protectedif)
 
                 if self.antispoofing == "YES":
                     stdOut, stdErr = self.executioner.run(self.echocmd+' 1 > '+self.ipv4conf_path+self.protectedif+'/'+self.antispoofing_file, self.dryrun)
-                    abyle_output("abyle_firewall_buildUp", stdErr, stdOut, "anti spoofing for "+self.protectedif+" activated","default", self.logfile, self.verbose)
+                    log.info("anti spoofing activated for "+self.protectedif)
                 else:
                     stdOut, stdErr = self.executioner.run(self.echocmd+' 0 > '+self.ipv4conf_path+self.protectedif+'/'+self.antispoofing_file, self.dryrun)
-                    abyle_output("abyle_firewall_buildUp", stdErr, stdOut, "anti spoofing for "+self.protectedif+" deactivated","default", self.logfile, self.verbose)
+                    log.info("anti spoofing deactivated for "+self.protectedif)
 
 
-            self.if_config = abyleparse(self.fwconfigpath, self.protectedif, self.rulesfile, self.ipt_xmlconfig, self.excludedInterfaces)
+            self.if_config = abyleparse(self.fwconfigpath, self.protectedif, self.rulesfile, self.ipt_xmlconfig, self.excludedInterfaces, self.verbose)
             self.rules =  self.if_config.getRules()
-            print("he")
-            print(self.rules)
-            abyle_output("","","","RULES:", "blue", self.logfile, self.verbose)
-            if not self.verbose:
-                self.output.startup(".")
-
+            log_rules = logger("firewall-rule")
+            
             for rule in self.rules:
                 time.sleep(self.naptime / 1000.0)
-                abyle_output("abyle_firewall_buildUp_rules", "", "", self.protectedif+" "+rule,"default", self.logfile, self.verbose)
-                if not self.verbose:
-                    self.output.startup(".")
-
+                log_rules.info(self.protectedif+" "+rule)
                 stdOut, stdErr = self.executioner.run(self.iptablesbin+' '+rule, self.dryrun)
 
-            if self.excludedInterfaces.count(self.protectedif) > 0:
-                abyle_output("","","","", "blue", self.logfile, self.verbose)
-                abyle_output("","","","interface "+self.protectedif+" excluded.", "green", self.logfile, self.verbose)
-                abyle_output("","","","", "blue", self.logfile, self.verbose)
-                if not self.verbose:
-                    try:
-                        con_size = string.join(os.popen("stty size 2>/dev/null").readlines())
-                        arr_con_size = string.split(con_size," ")
-                        size = string.atoi(arr_con_size[1])-13
-                        size = size+4
-                        a = string.join(os.popen("echo -n \033[$(("+str(size)+"))G && echo -n    [EXCLUDED]  "))
-                        self.output.startup(a, "green", "yes")
-                    except IndexError:
-                        self.output.startup("[EXCLUDED]\n")
-
             if self.excludedInterfaces.count(self.protectedif) == 0:
-
-                abyle_output("","","","PORTFORWARDING:", "blue", self.logfile, self.verbose)
-                if not self.verbose:
-                    self.output.startup(".")
-
                 if self.portforwarding == "YES":
                     self.portforwarding = self.if_config.getPortforwarding()
                     for portfwd in self.portforwarding:
-                        abyle_output("abyle_firewall_buildUp_portfwd", "", "", self.protectedif+" "+portfwd, "default", self.logfile, self.verbose)
+                        log.info(self.protectedif+" "+portfwd)
                         stdOut, stdErr = self.executioner.run(self.iptablesbin+' '+portfwd, self.dryrun)
                 else:
-                    abyle_output("abyle_firewall_buildUp_portfwd", "", "", self.protectedif+" "+"PORTFORWARDING DISABLED", "default", self.logfile, self.verbose)
-
-                abyle_output("","","","TRANSPARENT PROXY:", "blue", self.logfile, self.verbose)
-                if not self.verbose:
-                    self.output.startup(".")
+                    log.info(self.protectedif+" "+"PORTFORWARDING DISABLED")
 
                 if self.tproxy == "YES":
                     self.tproxy = self.if_config.getTproxy()
                     for transproxy in self.tproxy:
-                        abyle_output("abyle_firewall_buildUp_transproxy", "", "", self.protectedif+" "+transproxy, "default", self.logfile, self.verbose)
+                        log.info(self.protectedif+" "+transproxy)
                         stdOut, stdErr = self.executioner.run(self.iptablesbin+' '+transproxy, self.dryrun)
                 else:
-                    abyle_output("abyle_firewall_buildUp_tproxy", "", "", self.protectedif+" "+"TRANSPARENT PROXY DISABLED", "default", self.logfile, self.verbose)
+                    log.info(self.protectedif+" "+"TRANSPARENT PROXY DISABLED")
 
-
-                    abyle_output("","","","LOGGING:", "blue", self.logfile, self.verbose)
-                if not self.verbose:
-                    self.output.startup(".")
                 if self.logging == "YES":
                     self.logging = self.if_config.getLogging()
                     for log in self.logging:
-                        abyle_output("abyle_firewall_buildUp_log", "", "", self.protectedif+" "+log, "default", self.logfile, self.verbose)
+                        log.info(self.protectedif+" "+log)
                         stdOut, stdErr = self.executioner.run(self.iptablesbin+' '+log, self.dryrun)
                 else:
-                    abyle_output("abyle_firewall_buildUp_logging", "", "", self.protectedif+" "+"LOGGING DISABLED", "default", self.logfile, self.verbose)
+                    log.info(self.protectedif+" "+"LOGGING DISABLED")
 
-                abyle_output("","","","ALLOW PING:", "blue", self.logfile, self.verbose)
-                if not self.verbose:
-                    self.output.startup(".")
                 if self.allowping == "YES":
                     self.allowping = self.if_config.getAllowPing()
                     for ap in self.allowping:
-                        abyle_output("abyle_firewall_buildUp_allowping", "", "", self.protectedif+" "+ap, "default", self.logfile, self.verbose)
+                        log.info(self.protectedif+" "+ap)
                         stdOut, stdErr = self.executioner.run(self.iptablesbin+' '+ap, self.dryrun)
                 else:
-                    abyle_output("abyle_firewall_buildUp_allowping", "", "", self.protectedif+" "+"ALLOWPING DISABLED", "default", self.logfile, self.verbose)
+                    log.info(self.protectedif+" "+"ALLOWPING DISABLED")
 
-                abyle_output("","","","MASQUERADING:", "blue", self.logfile, self.verbose)
-                if not self.verbose:
-                    self.output.startup(".")
                 if self.masquerading == "YES":
                     self.masquerading = self.if_config.getMasquerading()
                     for mg in self.masquerading:
-                        abyle_output("abyle_firewall_buildUp_masquerading", "", "", self.protectedif+" "+mg, "default", self.logfile, self.verbose)
+                        log.info(self.protectedif+" "+mg)
                         stdOut, stdErr = self.executioner.run(self.iptablesbin+' '+mg, self.dryrun)
                 else:
-                    abyle_output("abyle_firewall_buildUp_masquerading", "", "", self.protectedif+" "+"MASQUERADING DISABLED", "default", self.logfile, self.verbose)
-                if not self.verbose:
-                    try:
-                        con_size = string.join(os.popen("stty size 2>/dev/null").readlines())
-                        arr_con_size = string.split(con_size," ")
-                        size = string.atoi(arr_con_size[1])-13
-                        size = size+4
-                        a = string.join(os.popen("echo -n \033[$(("+str(size)+"))G && echo -n    [DONE]  "))
-                        self.output.startup(a, "blue", "yes")
+                    log.info(self.protectedif+" "+"MASQUERADING DISABLED")
 
-                    except IndexError:
-                        self.output.startup("[DONE]\n")
-
-
-
-                                #self.output.startup("[DONE]", "blue")
         else:
-            abyle_output("abyle_firewall", "", "", "ERROR: No directory found for interface "+self.protectedif+" in "+self.fwconfigpath+'interfaces/', "red", self.logfile, self.verbose)
+            log.error("no directory found for interface "+self.protectedif+" in "+self.fwconfigpath+"interfaces/")

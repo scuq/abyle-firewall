@@ -16,7 +16,7 @@ class abyle_execute:
 		stdErr = ""
 
 		if not self.dryrun:
-			print (self.command)
+			#print (self.command)
 			p = Popen(self.command, shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, close_fds=True)
 			stdOut=re.sub('\\n+','\\n',str(p.stdout.read().decode("utf-8"))).split("\n")
 			stdErr=str(p.stderr.read()).split("\n")

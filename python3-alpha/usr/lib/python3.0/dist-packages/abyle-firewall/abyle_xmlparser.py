@@ -3,15 +3,17 @@ import re
 import sys
 #from xml.dom.minidom import Node
 from abyle_output import abyle_output
+from abyle_log import logger
 
+log = logger("xml_parser")
 try:
     from lxml import etree
 except (ImportError):
-    abyle_output("xml parser import error, please install python lxml package", "", "", str(sys.exc_info()[1]), "red")
+    log.error("xml parser import error, please install python lxml package")
     sys.exit(1)
 
 class abyleparse:
-    def __init__(self, fwconfigpath, interface, rulesfile, ipt_xmlconfig, excludedInterfaces, verbose=True):
+    def __init__(self, fwconfigpath, interface, rulesfile, ipt_xmlconfig, excludedInterfaces, verbose):
         self.classname = "abyleparse"
         self.verbose=verbose
         self.fwconfigpath = fwconfigpath
@@ -22,9 +24,10 @@ class abyleparse:
         self.iptflags_dict = {}
         self.excludedInterfaces = excludedInterfaces
         self.allowping = ""
+        log = logger("xml_parser")
 
         if self.verbose:
-           abyle_output("abyle_xml_parser ("+self.pinterface+")", "", "", self.classname+" object created.")
+           log.debug(self.classname+" object created")
 
         try:
             #old            self.iptflags_config = xml.dom.minidom.parse(self.fwconfigpath+self.iptflagsfile).documentElement
@@ -40,13 +43,13 @@ class abyleparse:
                 # old self.rules_config = xml.dom.minidom.parse(self.fwconfigpath+'interfaces/'+self.pinterface+'/'+self.rulesfile)
                 self.rules_config = etree.parse(self.fwconfigpath+'interfaces/'+self.pinterface+'/'+self.rulesfile)
         except (IOError):
-            abyle_output(self.pinterface+"_xmlparsing", "", "", sys.exc_info()[1])
+            log.error(sys.exc_info()[1])
 
     def getIpTablesFlags(self):
         self.methodname="getIpTablesFlags(self)"
 
         if self.verbose:
-           abyle_output("abyle_xml_parser", "", "", "launched "+self.methodname+" of "+self.classname+".")
+           log.debug("launched "+self.methodname+" of "+self.classname+".")
 
         iptflags_dict_temp = {}
 
@@ -102,14 +105,13 @@ class abyleparse:
             cnt = cnt + 1
 
         if self.verbose:
-           abyle_output("abyle_xml_parser", "", "", self.methodname+" (iptflags_dict_temp) "+str(iptflags_dict_temp))
-           abyle_output("abyle_xml_parser", "", "", self.methodname+" (interface_flag) "+str(interface_flag))
-           abyle_output("abyle_xml_parser", "", "", self.methodname+" (portforwarding_destination_flag) "+str(portforwarding_destination_flag))
-           abyle_output("abyle_xml_parser", "", "", self.methodname+" (transparent_toport_flag) "+str(transparent_toport_flag))
-           abyle_output("abyle_xml_parser", "", "", self.methodname+" (outside_interface_flag) "+str(outside_interface_flag))
-           abyle_output("abyle_xml_parser", "", "", self.methodname+" (subflag_dict_temp) "+str(subflag_dict_temp))
-           abyle_output("abyle_xml_parser", "", "", self.methodname+" (subflag_cliswitch_dict_temp) "+str(subflag_cliswitch_dict_temp))
-
+           log.debug(self.methodname+" (iptflags_dict_temp) "+str(iptflags_dict_temp))
+           log.debug(self.methodname+" (interface_flag) "+str(interface_flag))
+           log.debug(self.methodname+" (portforwarding_destination_flag) "+str(portforwarding_destination_flag))
+           log.debug(self.methodname+" (transparent_toport_flag) "+str(transparent_toport_flag))
+           log.debug(self.methodname+" (outside_interface_flag) "+str(outside_interface_flag))
+           log.debug(self.methodname+" (subflag_dict_temp) "+str(subflag_dict_temp))
+           log.debug(self.methodname+" (subflag_cliswitch_dict_temp) "+str(subflag_cliswitch_dict_temp))
 
         return iptflags_dict_temp, interface_flag, portforwarding_destination_flag, transparent_toport_flag, outside_interface_flag, subflag_dict_temp, subflag_cliswitch_dict_temp
 
@@ -119,8 +121,11 @@ class abyleparse:
         self.flagvalue = flagvalue
         self.flagname = flagname
         valueSupport = ""
+
+        log = logger("xml_parser")
+
         if self.verbose:
-           abyle_output("abyle_xml_parser", "", "", "launched "+self.methodname+" of "+self.classname+".")
+           log.debug("launched "+self.methodname+" of "+self.classname+".")
 
         # check if this flag supports values
 
@@ -143,8 +148,10 @@ class abyleparse:
     def getAbstractXmlRules(self, xpathToMainNode):
         self.methodname="getAbstractXmlRules(self,"+xpathToMainNode+")"
 
+        log = logger("xml_parser")
+
         if self.verbose:
-           abyle_output("abyle_xml_parser", "", "", "launched "+self.methodname+" of "+self.classname+".")
+           log.debug("launched "+self.methodname+" of "+self.classname+".")
 
         # xpathToMainNode example for access rules: "/interface/rules/traffic"
 
@@ -174,7 +181,7 @@ class abyleparse:
         self.iptflags_indecies.sort()
 
         if self.verbose:
-           abyle_output("abyle_xml_parser", "", "", self.methodname+" - self.iptflags_indecies (sorted) "+str(self.iptflags_indecies)+".")
+           log.debug(self.methodname+" - self.iptflags_indecies (sorted) "+str(self.iptflags_indecies)+".")
 
         if xpathToMainNode.find("head") > 0:
             blockchain = self.rules_config.xpath("/interface/blockruleshead/@blockchain")
@@ -194,7 +201,7 @@ class abyleparse:
 
 
         if self.verbose:
-           abyle_output("abyle_xml_parser", "", "", self.methodname+" - abstractNodes "+str(abstractNodes)+".")
+           log.debug(self.methodname+" - abstractNodes "+str(abstractNodes)+".")
 
         cnt=0
         for node in abstractNodes:
@@ -202,8 +209,8 @@ class abyleparse:
             #abstractAttributeNodes = abstractNodes[cnt].xpath("./@*")
             abstractAttributeNodes = abstractNodes[cnt].keys()
             if self.verbose:
-                abyle_output("abyle_xml_parser", "", "", self.methodname+" - "+str(node.tag)+" abstractNode AttributeNames "+str(abstractNodes[cnt].keys())+".")
-#                abyle_output("abyle_xml_parser", "", "", self.methodname+" - "+str(node.tag)+" attributes "+str(abstractAttributeNodes)+".")
+                log.debug(self.methodname+" - "+str(node.tag)+" abstractNode AttributeNames "+str(abstractNodes[cnt].keys())+".")
+#                log.debug(self.methodname+" - "+str(node.tag)+" attributes "+str(abstractAttributeNodes)+".")
             self.attributestr = ""
             tempDestIpStr = ""
             tempDestPortStr = ""
@@ -239,7 +246,7 @@ class abyleparse:
 
 
                         except (KeyError):
-                            abyle_output("abyle_xmlparser.py: parsing error @ iptables flags:", "", "", sys.exc_info()[1], "red")
+                            log.error(sys.exc_info()[1])
                             sys.exit(1)
 
 			

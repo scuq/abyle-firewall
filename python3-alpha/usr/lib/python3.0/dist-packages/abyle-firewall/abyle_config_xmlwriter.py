@@ -2,14 +2,15 @@ import sys
 from abyle_output import abyle_output
 from xml.dom.minidom import *
 import codecs
+from abyle_log import logger
+
+log = logger("abyle_config_xmlwriter")
 
 try:
     from lxml import etree
 except (ImportError):
-    abyle_output("xml config parser import error, please install python xpath modules", "", "", str(sys.exc_info()[1]), "red")
+    log.error("xml config parser import error, please install python xpath modules")
     sys.exit(1)
-
-
 
 class abyle_config_write:
     def __init__(self, fwconfigpath, interface, xmlconfig):
@@ -28,7 +29,7 @@ class abyle_config_write:
                 self.abyle_config = xml.dom.minidom.parse(self.fwconfigpath+'interfaces/'+self.pinterface+'/'+self.xmlconfig)
                 self.xmlfile = self.fwconfigpath+'interfaces/'+self.pinterface+'/'+self.xmlconfig
         except (IOError):
-            abyle_output(self.interface+"_config_xmlwriter", "", "", str(sys.exc_info()[1]))
+            log.error(sys.exc_info()[1])
 
     def buildNewNode(self, nodename, value="", attributes={}):
 
@@ -71,7 +72,7 @@ class abyle_config_write:
             writer.close()
 
         else:
-            abyle_output("error abyle_xml_writer has not created a new node yet.", "", "", str(msg), "red")
+            log.error("error abyle_xml_writer has not created a new node yet.")
             sys.exit(1)
 
         return
