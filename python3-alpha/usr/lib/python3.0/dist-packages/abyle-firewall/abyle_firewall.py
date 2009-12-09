@@ -201,9 +201,9 @@ class abyle_firewall:
         log = logger("abyle-firewall")
 	self.control = control
         if self.protectedif in self.excludedInterfaces:
-            self.control.start_stop("securing "+self.protectedif, "EXCLUDED")
+            log.start_stop("securing "+self.protectedif, "EXCLUDED")
         else:
-            self.control.start_stop("securing "+self.protectedif)
+            log.start_stop("securing "+self.protectedif)
 
         if os.path.exists(self.fwconfigpath+'/'+'interfaces/'+self.protectedif) or self.excludedInterfaces.count(self.protectedif) > 0:
 

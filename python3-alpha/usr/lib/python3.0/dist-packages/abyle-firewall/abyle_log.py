@@ -4,7 +4,7 @@ import logging.handlers
 class logger:
 	Filt = logging.Filter("somthing_but_not_empty")
 	newConsoleFormat = ('%(message)s')
-	defaultConsoleFormat = ('%(name)-15s-> %(message)s')
+	defaultConsoleFormat = ('%(name)-15s:: %(message)s')
 	colorized_log_messages = True
 	colors = {'warning':'\033[33m', 'info':'\033[0m', 'debug':'\033[36m', 'error':'\033[31m', 'reset':'\033[1;0m', 'start_stop':'\033[32m'}
 	

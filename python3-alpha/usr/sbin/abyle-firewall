@@ -127,8 +127,7 @@ def stopfw(dryrun, verbose, LOGFILE, mode="unsecure"):
     log = logger("abyle-firewall")
     control = logger("abyle-control")
     control.emptyLine()
-    control.start_stop("Stopping Firewall ...")
-    control.emptyLine()
+    control.start_stop("stopping firewall ...")
 
     if mode == "unsecure":
         flush_chains(dryrun, verbose, "all", log)
@@ -443,7 +442,7 @@ def realDaemon(FWCONFIGPATH, XMLCONFIG, verbose, LOGFILE):
 def main():
 
 	# get the root logging instance from python logging module
-    consoleFormat = ('%(name)-15s-> %(message)s')
+    consoleFormat = ('%(name)-15s:: %(message)s')
     fileFormat = ('%(asctime)s %(name)-17s %(levelname)-8s %(message)s')
     dateFormat = ('%a, %d %b %Y %H:%M:%S')
     root_logger = logging.getLogger()
@@ -592,6 +591,8 @@ def main():
         ECHOCMD = global_config.getConfig("echocmd")
         # end parse the config file
 
+        control = logger("abyle-control")
+        control.colorizeMessages(False)
 
         if not options.statusfw and not options.stopfw and not options.reloadmod and not options.startfw and not options.restartfw and not options.version and not options.dryrunfw and not options.install_ifs and not options.daemon:
             log.error("no options given. use --help to get more information")
@@ -612,7 +613,8 @@ def main():
                 log.fwstatus(stdOut)
 
             if options.restartfw:
-
+                stopfw(options.dryrunfw, options.verbose, LOGFILE, "secure")
+                control.emptyLine()
                 EXISTING_INTERFACES = getAllInterfaces()
                 for intF in EXISTING_INTERFACES:
                     intcnt = PROTECTED_INTERFACES.count(intF)
@@ -620,7 +622,6 @@ def main():
                         excnt = EXCLUDED_INTERFACES.count(intF)
                         if excnt == 0:
                             log.warning("interface "+intF+" not configured everything will be blocked!")
-                stopfw(options.dryrunfw, options.verbose, LOGFILE, "secure")
                 fw = abyle_firewall(options.dryrunfw, IPTABLES, FWCONFIGPATH, RULESFILE, IPT_XMLCONFIG, XMLCONFIG, ECHOCMD, LOGFILE, options.verbose)
                 PIcnt_max = 0
                 for iface in PROTECTED_INTERFACES:
@@ -646,7 +647,8 @@ def main():
                     except AttributeError:
                         stdOut, stdErr = executioner.run(IPTABLES+' -D '+chain+' 1', False)
 
-
+                control.warning("startup completed")
+                control.colorizeMessages(True)
 
 
             if options.stopfw:
@@ -660,6 +662,8 @@ def main():
                 changelog.getChangelog()
 
             if options.startfw:
+                stopfw(options.dryrunfw, options.verbose, LOGFILE)
+                control.emptyLine()
                 EXISTING_INTERFACES = getAllInterfaces()
                 for intF in EXISTING_INTERFACES:
                     intcnt = PROTECTED_INTERFACES.count(intF)
@@ -667,7 +671,6 @@ def main():
                         excnt = EXCLUDED_INTERFACES.count(intF)
                         if excnt == 0:
                             log.warning("interface "+intF+" not configured everything will be blocked!")
-                stopfw(options.dryrunfw, options.verbose, LOGFILE)
                 fw = abyle_firewall(options.dryrunfw, IPTABLES, FWCONFIGPATH, RULESFILE, IPT_XMLCONFIG, XMLCONFIG, ECHOCMD, LOGFILE, options.verbose)
                 PIcnt_max = 0
                 for iface in PROTECTED_INTERFACES:
@@ -680,6 +683,9 @@ def main():
 
                     if PIcnt == PIcnt_max:
                         fw.buildUpFinish(options.verbose)
+
+                control.warning("startup completed")
+                control.colorizeMessages(True)
 
     except KeyboardInterrupt:
         log.error("Ctrl+C recognized.")
