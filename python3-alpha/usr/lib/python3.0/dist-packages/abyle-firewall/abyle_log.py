@@ -15,8 +15,10 @@ class logger:
 	def emptyLine(self):
 		self.rootLogger = logging.getLogger()
 		self.rootLogger.handlers[0].setFormatter(logging.Formatter(self.newConsoleFormat))
+		self.rootLogger.handlers[1].addFilter(self.Filt)
 		self.log1.error("")
 		self.rootLogger.handlers[0].setFormatter(logging.Formatter(self.defaultConsoleFormat))
+		self.rootLogger.handlers[1].removeFilter(self.Filt)
 
 	def debug(self, msg):
 		self.message = msg
@@ -57,7 +59,7 @@ class logger:
 		self.message = msg
 		self.startup_status = startup_status
 		self.rootLogger = logging.getLogger()
-		self.Filt = logging.Filter("somthing_but_not_empty")
+		#self.Filt = logging.Filter("somthing_but_not_empty")
 		self.rootLogger.handlers[1].addFilter(self.Filt)
 		if self.colorized_log_messages == True:
 			self.log1.warning(self.message+'\033[40G['+self.colors['start_stop']+'  '+self.startup_status+'  '+self.colors['reset']+']')
