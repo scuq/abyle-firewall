@@ -564,8 +564,8 @@ def main():
         log = logger("abyle-firewall")
 
         if options.verbose:
-            log.warning("verbose mode on. see logfile for debug messages")
-            log.warning("logfile: "+LOGFILE)
+            log.warning("verbose mode on. see logfile for debug messages.")
+            log.error("logfile: "+LOGFILE)
 
         RULESFILE =  global_config.getConfig("rulesfile")
         KERNELMODULES  =  global_config.getConfig("modules")
