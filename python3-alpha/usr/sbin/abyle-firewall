@@ -126,7 +126,9 @@ def getAllInterfaces(dryrun=False):
 def stopfw(dryrun, verbose, LOGFILE, mode="unsecure"):
     log = logger("abyle-firewall")
     control = logger("abyle-control")
+    control.emptyLine()
     control.start_stop("Stopping Firewall ...")
+    control.emptyLine()
 
     if mode == "unsecure":
         flush_chains(dryrun, verbose, "all", log)
@@ -441,8 +443,9 @@ def realDaemon(FWCONFIGPATH, XMLCONFIG, verbose, LOGFILE):
 def main():
 
 	# get the root logging instance from python logging module
-    consoleFormat = ('%(name)s: %(message)s')
-    fileFormat = ('%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
+    consoleFormat = ('%(name)-15s-> %(message)s')
+    fileFormat = ('%(asctime)s %(name)-17s %(levelname)-8s %(message)s')
+    dateFormat = ('%a, %d %b %Y %H:%M:%S')
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
 
@@ -554,7 +557,7 @@ def main():
         #setup file handler
         fh = logging.handlers.RotatingFileHandler(LOGFILE,maxBytes=MAX_LOGFILE_SIZE, backupCount=logfileBackupFiles, mode=logfileMode)
         fh.setLevel(logging.DEBUG)
-        fh.setFormatter(logging.Formatter(fileFormat))
+        fh.setFormatter(logging.Formatter(fileFormat, dateFormat))
 
 		#add the file handler to our root logger
         root_logger.addHandler(fh)
@@ -602,18 +605,11 @@ def main():
 
             if options.statusfw:
                 stdOut, stdErr = executioner.run(IPTABLES+' -v -L', options.dryrun)
-                #abyle_output("cli_option_parser", stdErr, stdOut, "iptables -L -v -- failed??")
-                if stdErr:
-                    log.error("iptables -L -v -- failed?")
-                if stdOut:
-                    for line in stdOut:
-                        log.info(line)
+                log.fwstatus(stdOut)
                 stdOut, stdErr = executioner.run(IPTABLES+' -v -L PREROUTING -t nat', options.dryrun)
-                #abyle_output("cli_option_parser", stdErr, stdOut, "iptables -L -v -- failed??")
-                log.error("iptables -L -v -- failed?")
+                log.fwstatus(stdOut)
                 stdOut, stdErr = executioner.run(IPTABLES+' -v -L POSTROUTING -t nat', options.dryrun)
-                #abyle_output("cli_option_parser", stdErr, stdOut, "iptables -L -v -- failed??")
-                log.error("iptables -L -v -- failed?")
+                log.fwstatus(stdOut)
 
             if options.restartfw:
 
