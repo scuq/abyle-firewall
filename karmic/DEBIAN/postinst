@@ -40,6 +40,10 @@ fi
 
 
 
-if [ ! -d /etc/abyle-firewall ]; then
+
+
+if [ -d "/etc/abyle-firewall/" ]; then
+	echo "/etc/abyle-firewall/ exists." >/var/log/abyle.log || true
+else
 	/usr/sbin/abyle-firewall -t >/var/log/abyle.log || true
 fi

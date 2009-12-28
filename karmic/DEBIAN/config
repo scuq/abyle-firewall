@@ -5,7 +5,7 @@
 db_version 2.0
 db_title abyle-firewall
 
-if [ "$1" == "reconfigure" ]; then
+if [ "$1" = "reconfigure" ]; then
 	db_fset abyle-firewall/exclude seen false
 fi
 db_input high abyle-firewall/exclude  || true
@@ -13,8 +13,8 @@ db_go || true
 
 db_get abyle-firewall/exclude 
 
-if  [ $RET = true ]; then
 	
+if [ "$RET" = "true" ] ; then
 
 	networkInterfaces=`cat /proc/net/dev  | grep ':' | awk -F: '{ print $1 }' |  awk '{ print $1 }'`
 
@@ -44,7 +44,7 @@ if  [ $RET = true ]; then
 
 	db_subst abyle-firewall/interfaces interfaces $interfacesString
 
-	if [ "$1" == "reconfigure" ]; then
+	if [ "$1" = "reconfigure" ]; then
 		db_fset abyle-firewall/interfaces seen false
 	fi
 	db_set abyle-firewall/interfaces "lo, sit0"
@@ -68,5 +68,4 @@ if  [ $RET = true ]; then
 	#db_register abyle-firewall/protectedinterfaces 
 	db_set abyle-firewall/protectedinterfaces $protectedinterfaces
 	db_go || true
-
 fi

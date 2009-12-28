@@ -1,10 +1,10 @@
 Package: abyle-firewall
-Version: 1.0.1
+Version: 1.1.0
 Section: net
 Priority: optional
 Architecture: i386
 Pre-Depends: debconf (>= 0.5) | debconf-2.0
-Depends: python, python-xml, iptables
+Depends: python, python-lxml, iptables
 Recommends: abyle-frontend
 Installed-Size: 900
 Maintainer: Abyle Maintainers <admin@abyle.org>
