@@ -1,0 +1,1 @@
+/usr/share/pyshared/oldxml/_xmlplus/dom/fr/LC_MESSAGES/4Suite.mo
