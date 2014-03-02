@@ -189,6 +189,12 @@ class abyleparse:
             blockchain_create_string = " -N "+blockchain
             self.abstractRulesArray.append(blockchain_create_string)
 
+        if xpathToMainNode.find("pass") > 0:
+            bypasschain = self.rules_config.xpath("/interface/bypass/@bypasschain")
+            bypasschain = bypasschain[0]
+            bypasschain_create_string = " -t nat -N "+bypasschain
+            self.abstractRulesArray.append(bypasschain_create_string)
+
 
         if xpathToMainNode.find("masquerading") > 0:
             self.interfacestr = outsideInterfaceFlag+' '+self.pinterface+' '
@@ -311,6 +317,7 @@ class abyleparse:
                 self.attributestrForward = re.sub("DNAT","ACCEPT",self.attributestrForward)
                 self.attributestrForward = re.sub("-t nat","",self.attributestrForward)
                 self.attributestrForward = re.sub("--dport \d{1,5}","",self.attributestrForward)
+                self.attributestrForward = re.sub(r"--destination \b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b","",self.attributestrForward)
                 self.attributestrForward = self.attributestrForward+" --destination-port "+tempDestPortStr+" --destination "+tempDestIpStr
 
                 self.attributestr = self.attributestr+"--dport "+tempForwardPortStr+" "+portfwdDestFlag+' '+tempDestIpStr+":"+tempDestPortStr
@@ -381,6 +388,18 @@ class abyleparse:
 
 
         return self.rulesarray
+
+
+    def getBypassRules(self, bypass):
+
+        self.rulesarray = []
+
+
+        self.rulesarray = self.getAbstractXmlRules("/interface/bypass/traffic")
+
+
+        return self.rulesarray
+
 
 
     def getAllowPing(self):

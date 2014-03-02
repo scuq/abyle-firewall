@@ -7,7 +7,7 @@ class abyle_execute:
 		self.command = ""
 		self.dryrun = False
 	
-	def run(self, command, dryrun):
+	def run(self, command, dryrun, closefds=True):
 
 		self.command = command	
 		self.dryrun = dryrun
@@ -17,7 +17,7 @@ class abyle_execute:
 
 		if not self.dryrun:
 			#print (self.command)
-			p = Popen(self.command, shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, close_fds=True)
+			p = Popen(self.command, shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, close_fds=closefds)
 			stdOut=re.sub('\\n+','\\n',str(p.stdout.read().decode("utf-8"))).split("\n")
 			stdErr=str(p.stderr.read()).split("\n")
 		else:
