@@ -189,13 +189,6 @@ class abyleparse:
             blockchain_create_string = " -N "+blockchain
             self.abstractRulesArray.append(blockchain_create_string)
 
-        if xpathToMainNode.find("pass") > 0:
-            bypasschain = self.rules_config.xpath("/interface/bypass/@bypasschain")
-            bypasschain = bypasschain[0]
-            bypasschain_create_string = " -t nat -N "+bypasschain
-            self.abstractRulesArray.append(bypasschain_create_string)
-
-
         if xpathToMainNode.find("masquerading") > 0:
             self.interfacestr = outsideInterfaceFlag+' '+self.pinterface+' '
         else:
@@ -388,18 +381,6 @@ class abyleparse:
 
 
         return self.rulesarray
-
-
-    def getBypassRules(self, bypass):
-
-        self.rulesarray = []
-
-
-        self.rulesarray = self.getAbstractXmlRules("/interface/bypass/traffic")
-
-
-        return self.rulesarray
-
 
 
     def getAllowPing(self):

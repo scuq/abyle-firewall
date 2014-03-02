@@ -25,11 +25,11 @@
   <frontenduser>www-data</frontenduser>
   <frontendgroup>www-data</frontendgroup>
   <createporttriggerchain>no</createporttriggerchain>
-  <dualisp>no</dualisp>
+  <dualisp>none</dualisp>
   <dualispsetupscript>/usr/local/sbin/dualispsetup.sh</dualispsetupscript>
-  <socks>no</socks>
+  <socks>none</socks>
   <socksscript>/usr/local/sbin/dante.sh</socksscript>
-  <shaping>no</shaping>
+  <shaping>none</shaping>
   <shapingscript>/usr/local/sbin/shaping.sh</shapingscript>
   <protect>
   </protect>

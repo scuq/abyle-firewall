@@ -165,7 +165,6 @@ class abyle_firewall:
 
         self.default_config = abyleparse(self.fwconfigpath, "default", self.rulesfile, self.ipt_xmlconfig, self.excludedInterfaces, self.verbose)
         self.defaultrules =  self.default_config.getDefaultRules("head")
-        self.defaultrules =  self.default_config.getBypassRules("bypass")
 
         for drule in self.defaultrules:
             log.info("default-rule: "+drule)
